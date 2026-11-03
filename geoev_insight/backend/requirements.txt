@@ -1,0 +1,10 @@
+dash>=3.0,<4
+dash-leaflet>=1.1,<2
+dash-bootstrap-components>=2.0,<3
+pandas>=2.2,<3
+plotly>=6.0,<7
+openpyxl>=3.1,<4
+SQLAlchemy>=2.0,<3
+PyMySQL>=1.1,<2
+python-dotenv>=1.0,<2
+gunicorn>=23,<25
