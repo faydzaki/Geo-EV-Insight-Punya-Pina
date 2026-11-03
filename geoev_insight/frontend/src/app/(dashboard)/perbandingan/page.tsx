@@ -137,6 +137,8 @@ export default function PerbandinganPage() {
         <p className="text-xs text-slate-500 mb-4">Rasio tidak dihitung pada wilayah tanpa SPKLU terpetakan.</p>
         <DataTable
           data={rows.map((r) => ({ Wilayah: r.Wilayah, HCS: r.HCS, SPKLU: r.SPKLU, Rasio: r.Rasio != null ? Math.round(r.Rasio * 100) / 100 : null, Status: r.Status })) as unknown as Record<string, unknown>[]}
+          searchable
+          searchPlaceholder="Cari kabupaten / kota…"
           columns={[
             { key: 'Wilayah', label: 'Kabupaten / kota' },
             { key: 'HCS',     label: 'Catatan HCS',    render: (v) => fmtNumber(v as number) },

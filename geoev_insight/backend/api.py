@@ -900,3 +900,91 @@ def export_compare():
     except Exception:
         logger.exception("Export compare failed")
         return jsonify({"error": "Export gagal"}), 500
+
+
+@bp.route("/export/hcs", methods=["GET"])
+@jwt_auth_required
+def export_hcs():
+    """GET /api/export/hcs — Export rekap catatan HCS per wilayah & merk sebagai Excel."""
+    try:
+        _, hcs, _ = database.load_data()
+        if hcs.empty:
+            return jsonify({"error": "Tidak ada data HCS"}), 404
+
+        # Sheet 1: rekap per kabupaten/kota
+        by_area = (
+            hcs.groupby("wilayah", as_index=False)["jumlah"]
+            .sum()
+            .rename(columns={"wilayah": "Kabupaten/Kota", "jumlah": "Jumlah Catatan HCS"})
+            .sort_values("Jumlah Catatan HCS", ascending=False)
+        )
+
+        # Sheet 2: rekap per merk kendaraan
+        by_brand = (
+            hcs.groupby("merk", as_index=False)["jumlah"]
+            .sum()
+            .rename(columns={"merk": "Kategori Kendaraan", "jumlah": "Jumlah Catatan HCS"})
+            .sort_values("Jumlah Catatan HCS", ascending=False)
+        )
+
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            by_area.to_excel(writer, index=False, sheet_name="Per Kabupaten Kota")
+            by_brand.to_excel(writer, index=False, sheet_name="Per Kategori Kendaraan")
+        output.seek(0)
+
+        return Response(
+            output.read(),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=hcs_export.xlsx"},
+        )
+    except Exception:
+        logger.exception("Export HCS failed")
+        return jsonify({"error": "Export gagal"}), 500
+
+
+@bp.route("/export/quality", methods=["GET"])
+@jwt_auth_required
+def export_quality():
+    """GET /api/export/quality — Export daftar SPKLU bermasalah sebagai Excel."""
+    try:
+        sites, hcs, _ = database.load_data()
+        issues = []
+        if not sites.empty:
+            for _, row in sites.iterrows():
+                flags = []
+                if row["provinsi"] == "Jawa Timur" and row["wilayah"] == "Tidak diketahui":
+                    flags.append("Kabupaten/kota belum dikenali")
+                if row["unit"] <= 0:
+                    flags.append("Rincian charger kosong")
+                if row["pengelola"] == "Tidak diketahui":
+                    flags.append("Pengelola belum dikenali")
+                if not (-9.8 <= row["lat"] <= -5.3 and 110 <= row["lon"] <= 116.5):
+                    flags.append("Koordinat di luar cakupan")
+                if flags:
+                    issues.append({
+                        "Nama SPKLU": row["nama"],
+                        "Provinsi": row["provinsi"],
+                        "Alamat": row["alamat"],
+                        "Pengelola": row["pengelola"],
+                        "Kabupaten/Kota": row["wilayah"],
+                        "Temuan": "; ".join(flags),
+                    })
+
+        if not issues:
+            return jsonify({"error": "Tidak ada temuan — semua data sudah bersih"}), 404
+
+        df = pd.DataFrame(issues)
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Audit SPKLU")
+        output.seek(0)
+
+        return Response(
+            output.read(),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=audit_spklu.xlsx"},
+        )
+    except Exception:
+        logger.exception("Export quality failed")
+        return jsonify({"error": "Export gagal"}), 500

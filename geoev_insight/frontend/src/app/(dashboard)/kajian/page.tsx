@@ -1,10 +1,10 @@
 'use client'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchCompare, fetchAreas } from '@/lib/api'
+import { fetchCompare, fetchAreas, downloadExport } from '@/lib/api'
 import { fmtNumber } from '@/lib/utils'
 import InsightBlock from '@/components/ui/InsightBlock'
-import { AlertTriangle, TrendingUp, MapPin } from 'lucide-react'
+import { AlertTriangle, TrendingUp, MapPin, Download, Printer } from 'lucide-react'
 
 function CandidateCard({ rank, wilayah, hcs, spklu, rasio }: {
   rank: number; wilayah: string; hcs: number; spklu: number; rasio: number
@@ -18,7 +18,7 @@ function CandidateCard({ rank, wilayah, hcs, spklu, rasio }: {
       <div className="flex-1">
         <div className="font-bold text-slate-800 mb-0.5">{wilayah}</div>
         <div className="text-xs text-slate-500 mb-2">
-          {fmtNumber(hcs)} catatan HCS · {fmtNumber(spklu)} SPKLU
+          {fmtNumber(hcs)} catatan HCS &middot; {fmtNumber(spklu)} SPKLU
         </div>
         <div className="flex items-center gap-2">
           <div className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-purple-200">
@@ -37,6 +37,20 @@ function CandidateCard({ rank, wilayah, hcs, spklu, rasio }: {
 
 export default function KajianPage() {
   const [selectedArea, setSelectedArea] = useState('Semua')
+  const [exporting, setExporting] = useState(false)
+
+  async function handleExport() {
+    setExporting(true)
+    try {
+      await downloadExport('/api/export/compare', 'kajian-rekomendasi.xlsx')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  function handlePrint() {
+    window.print()
+  }
 
   const { data: compareRes, isLoading } = useQuery({
     queryKey: ['compare', selectedArea],
@@ -60,17 +74,36 @@ export default function KajianPage() {
     <div className="space-y-5">
       {/* Header */}
       <div>
-        <div className="inline-flex items-center gap-2 mb-2">
-          <span className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full"
-            style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}>04</span>
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kajian</span>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="inline-flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full"
+                style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}>04</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kajian</span>
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Wilayah yang perlu dikaji untuk SPKLU baru
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">
+              Urutan berdasarkan rasio catatan HCS per titik SPKLU, bukan keputusan pembangunan.
+            </p>
+          </div>
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-primary-700 border border-slate-200 hover:border-primary-300 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 shrink-0 mt-1"
+          >
+            <Download size={13} />
+            {exporting ? 'Mengunduh…' : 'Export Excel'}
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-primary-700 border border-slate-200 hover:border-primary-300 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-all print:hidden shrink-0 mt-1"
+          >
+            <Printer size={13} />
+            Cetak / PDF
+          </button>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          Wilayah yang perlu dikaji untuk SPKLU baru
-        </h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Urutan berdasarkan rasio catatan HCS per titik SPKLU, bukan keputusan pembangunan.
-        </p>
       </div>
 
       {/* Filter */}
@@ -154,9 +187,10 @@ export default function KajianPage() {
           <p>Data HCS dan perbandingan HCS/SPKLU hanya mencakup Jawa Timur.</p>
           <p>Setiap baris HCS yang valid dihitung termasuk UID berulang, sehingga jumlahnya belum tentu sama dengan jumlah pelanggan unik.</p>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <p className="text-sm text-red-700 font-medium">
-            ⚠ Rasio tinggi <span className="font-bold">bukan otomatis</span> berarti wilayah tersebut membutuhkan SPKLU baru.
+        <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-4 flex items-start gap-2.5">
+          <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-800 font-medium leading-relaxed">
+            Rasio tinggi <span className="font-bold">bukan otomatis</span> berarti wilayah tersebut membutuhkan SPKLU baru.
             Perlu verifikasi lapangan, kajian penggunaan, akses lokasi, dan kondisi jaringan listrik.
           </p>
         </div>

@@ -1,110 +1,161 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, CircleMarker, Tooltip, Popup, Circle } from 'react-leaflet'
+import { useEffect, useRef, useState } from 'react'
+import { MapContainer, TileLayer, CircleMarker, Tooltip, Popup, Circle, useMap } from 'react-leaflet'
 import { COLORS, AREA_CENTERS } from '@/lib/constants'
 import { fmtNumber } from '@/lib/utils'
 import type { Spklu, HcsRecord } from '@/types'
 import 'leaflet/dist/leaflet.css'
 
-interface SpkluMapProps {
-  sites: Spklu[]
-  hcsData: HcsRecord[]
-  layer: 'spklu' | 'hcs' | 'both'
-  onSelectSite?: (id: number) => void
-  showCoverage?: boolean
+// ─── Basemap configs (100% Free, No API Key Required) ───────────────────────
+const BASEMAPS = {
+  osm: {
+    label: 'Jalan (OSM)',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    subdomains: 'abc',
+    maxZoom: 19,
+  },
+  topo: {
+    label: 'Topografi',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri',
+    subdomains: '',
+    maxZoom: 18,
+  },
+  satelit: {
+    label: 'Satelit',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri',
+    subdomains: '',
+    maxZoom: 18,
+  },
+} as const
+type BasemapKey = keyof typeof BASEMAPS
+
+const DEFAULT_CENTER: [number, number] = [-7.85, 113.3]
+const DEFAULT_ZOOM = 7
+
+// ─── Map Controller (fly-to + reset) ─────────────────────────────────────────
+function MapController({ flyToArea, resetKey }: { flyToArea?: string; resetKey: number }) {
+  const map = useMap()
+  const isFirstReset = useRef(true)
+
+  useEffect(() => {
+    if (!flyToArea || flyToArea === 'Semua') return
+    const center = AREA_CENTERS[flyToArea]
+    if (center) map.flyTo(center, 10, { duration: 1.2, easeLinearity: 0.25 })
+  }, [flyToArea, map])
+
+  useEffect(() => {
+    if (isFirstReset.current) { isFirstReset.current = false; return }
+    map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, { duration: 1.2 })
+  }, [resetKey, map])
+
+  return null
 }
 
+// ─── Popups ───────────────────────────────────────────────────────────────────
 function SpkluPopup({ site }: { site: Spklu }) {
+  const ownerStyle =
+    site.pengelola === 'PLN'
+      ? { bg: '#ede9fe', color: '#5b21b6' }
+      : site.pengelola === 'Non-PLN'
+      ? { bg: '#fef9c3', color: '#713f12' }
+      : { bg: '#f3f4f6', color: '#374151' }
+
   return (
-    <div className="max-w-xs font-sans">
-      <div className="flex items-start gap-2 mb-2">
-        <div className="font-bold text-gray-800 flex-1">{site.nama}</div>
-        <span
-          className="text-xs px-2 py-0.5 rounded-full shrink-0"
-          style={{
-            backgroundColor:
-              site.pengelola === 'PLN'
-                ? '#dbeafe'
-                : site.pengelola === 'Non-PLN'
-                ? '#fef9c3'
-                : '#f3f4f6',
-            color:
-              site.pengelola === 'PLN'
-                ? '#1e40af'
-                : site.pengelola === 'Non-PLN'
-                ? '#713f12'
-                : '#374151',
-          }}
-        >
+    <div style={{ fontFamily: "'Inter','Segoe UI',Arial,sans-serif", maxWidth: 320 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+        <div style={{ fontWeight: 700, color: '#1E1B4B', flex: 1, lineHeight: 1.3 }}>{site.nama}</div>
+        <span style={{
+          fontSize: 11, padding: '2px 8px', borderRadius: 99, fontWeight: 600,
+          background: ownerStyle.bg, color: ownerStyle.color, whiteSpace: 'nowrap',
+        }}>
           {site.pengelola}
         </span>
       </div>
-      <p className="text-xs text-gray-500 mb-1">
-        {site.provinsi} · {site.wilayah}
+      <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>
+        {site.provinsi} &middot; {site.wilayah}
       </p>
-      <p className="text-xs text-gray-600 mb-2">{site.alamat || 'Alamat belum tersedia'}</p>
-      <div className="text-sm font-semibold text-gray-800 mb-2">
-        {fmtNumber(site.daya, 1)} kW · {site.unit} unit · {site.connector} konektor
+      <p style={{ fontSize: 12, color: '#4B5563', marginBottom: 8 }}>
+        {site.alamat || 'Alamat belum tersedia'}
+      </p>
+      <div style={{ fontSize: 13, fontWeight: 700, color: '#1E1B4B', marginBottom: 8 }}>
+        &#9889; {fmtNumber(site.daya, 1)} kW &middot; {site.unit} unit &middot; {site.connector} konektor
       </div>
       {site.rincian?.length > 0 && (
-        <table className="text-xs w-full border-collapse">
+        <table style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr className="bg-gray-50">
-              <th className="text-left px-2 py-1 border border-gray-200 font-medium">Daya</th>
-              <th className="text-left px-2 py-1 border border-gray-200 font-medium">Unit</th>
-              <th className="text-left px-2 py-1 border border-gray-200 font-medium">Konektor</th>
+            <tr style={{ background: '#F5F0FF' }}>
+              {['Daya', 'Unit', 'Konektor'].map((h) => (
+                <th key={h} style={{ textAlign: 'left', padding: '4px 8px', border: '1px solid #E9D5FF', fontWeight: 600, color: '#5b21b6' }}>{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {site.rincian.map((d, i) => (
-              <tr key={i}>
-                <td className="px-2 py-1 border border-gray-200">{fmtNumber(d.kw, 1)} kW</td>
-                <td className="px-2 py-1 border border-gray-200">{d.unit}</td>
-                <td className="px-2 py-1 border border-gray-200">{d.connector}</td>
+              <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                <td style={{ padding: '3px 8px', border: '1px solid #F3F4F6' }}>{fmtNumber(d.kw, 1)} kW</td>
+                <td style={{ padding: '3px 8px', border: '1px solid #F3F4F6' }}>{d.unit}</td>
+                <td style={{ padding: '3px 8px', border: '1px solid #F3F4F6' }}>{d.connector}</td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
-      <p className="text-xs text-gray-400 mt-2">Daya terpasang bukan ketersediaan saat ini.</p>
+      <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 8 }}>Daya terpasang bukan ketersediaan saat ini.</p>
     </div>
   )
 }
 
 function HcsPopup({ area, total, brands }: { area: string; total: number; brands: [string, number][] }) {
   return (
-    <div className="max-w-xs font-sans">
-      <div className="font-bold text-gray-800 mb-1">{area}</div>
-      <div className="text-sm font-semibold text-hcs mb-2">{fmtNumber(total)} catatan HCS</div>
-      <div className="text-xs font-medium text-gray-600 mb-1">Kategori kendaraan:</div>
-      <ul className="text-xs text-gray-600 space-y-0.5">
+    <div style={{ fontFamily: "'Inter','Segoe UI',Arial,sans-serif", maxWidth: 280 }}>
+      <div style={{ fontWeight: 700, color: '#1E1B4B', marginBottom: 4, lineHeight: 1.3 }}>{area}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: '#8B5CF6', marginBottom: 8 }}>{fmtNumber(total)} catatan HCS</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: '#4B5563', marginBottom: 4 }}>Kategori kendaraan:</div>
+      <ul style={{ fontSize: 11, color: '#4B5563', margin: 0, padding: 0, listStyle: 'none' }}>
         {brands.slice(0, 5).map(([brand, cnt]) => (
-          <li key={brand}>
-            {brand}: <span className="font-semibold">{fmtNumber(cnt)}</span>
+          <li key={brand} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+            <span>{brand}</span>
+            <span style={{ fontWeight: 600, color: '#4C1D95' }}>{fmtNumber(cnt)}</span>
           </li>
         ))}
       </ul>
-      <p className="text-xs text-gray-400 mt-2">
-        Titik menunjukkan kabupaten/kota, bukan alamat pelanggan.
-      </p>
+      <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 8 }}>Titik menunjukkan kabupaten/kota, bukan alamat pelanggan.</p>
     </div>
   )
 }
 
+// ─── Main Component ───────────────────────────────────────────────────────────
+interface SpkluMapProps {
+  sites: Spklu[]
+  hcsData: HcsRecord[]
+  layer: 'spklu' | 'hcs' | 'both'
+  onSelectSite?: (id: number) => void
+  showCoverage?: boolean
+  flyToArea?: string
+}
+
 export default function SpkluMap({
-  sites,
-  hcsData,
-  layer,
-  onSelectSite,
-  showCoverage = false,
+  sites, hcsData, layer, onSelectSite, showCoverage = false, flyToArea,
 }: SpkluMapProps) {
   const [mounted, setMounted] = useState(false)
+  const [basemap, setBasemap] = useState<BasemapKey>('osm')
+  const [resetKey, setResetKey] = useState(0)
+
   useEffect(() => setMounted(true), [])
 
   if (!mounted) {
     return (
-      <div className="h-[600px] bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 text-sm">
-        Memuat peta…
+      <div
+        className="h-[600px] rounded-xl flex items-center justify-center text-slate-400 text-sm"
+        style={{ background: 'linear-gradient(135deg, #F0EFFE, #EEF2FF)' }}
+      >
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+          <span>Memuat peta...</span>
+        </div>
       </div>
     )
   }
@@ -119,62 +170,67 @@ export default function SpkluMap({
     else hcsByArea[r.wilayah].brands.push([r.merk, r.jumlah])
   }
 
-  return (
-    <MapContainer
-      center={[-7.85, 113.3]}
-      zoom={7}
-      style={{ height: 600, width: '100%', borderRadius: '0.75rem' }}
-      scrollWheelZoom={true}
-    >
-      <TileLayer
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        maxZoom={19}
-      />
+  const bm = BASEMAPS[basemap]
 
-      {/* Coverage buffer (5 km) */}
-      {showCoverage &&
-        (layer === 'spklu' || layer === 'both') &&
-        sites.map((site) => (
+  const floatingPanel: React.CSSProperties = {
+    position: 'absolute',
+    zIndex: 1000,
+    background: 'rgba(255,255,255,0.94)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    border: '1px solid rgba(108,99,255,0.12)',
+    borderRadius: 14,
+    boxShadow: '0 4px 20px rgba(108,99,255,0.14)',
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <MapContainer
+        center={DEFAULT_CENTER}
+        zoom={DEFAULT_ZOOM}
+        style={{ height: 600, width: '100%', borderRadius: '0.75rem' }}
+        scrollWheelZoom={true}
+      >
+        <TileLayer
+          key={basemap}
+          url={bm.url}
+          attribution={bm.attribution}
+          subdomains={bm.subdomains || 'abc'}
+          maxZoom={bm.maxZoom}
+        />
+
+        <MapController flyToArea={flyToArea} resetKey={resetKey} />
+
+        {/* Coverage circles */}
+        {showCoverage && (layer === 'spklu' || layer === 'both') && sites.map((site) => (
           <Circle
             key={`cov-${site.id}`}
             center={[site.lat, site.lon]}
             radius={5000}
-            pathOptions={{
-              color: '#3b82f6',
-              weight: 1,
-              fillColor: '#3b82f6',
-              fillOpacity: 0.08,
-              dashArray: '5,4',
-            }}
+            pathOptions={{ color: '#6C63FF', weight: 1, fillColor: '#6C63FF', fillOpacity: 0.07, dashArray: '5,4' }}
           />
         ))}
 
-      {/* SPKLU markers */}
-      {(layer === 'spklu' || layer === 'both') &&
-        sites.map((site) => (
+        {/* SPKLU markers */}
+        {(layer === 'spklu' || layer === 'both') && sites.map((site) => (
           <CircleMarker
             key={site.id}
             center={[site.lat, site.lon]}
             radius={7}
             pathOptions={{
-              color: '#ffffff',
-              weight: 2,
+              color: '#ffffff', weight: 2,
               fillColor: COLORS[site.pengelola] ?? COLORS['Tidak diketahui'],
               fillOpacity: 0.9,
             }}
             eventHandlers={{ click: () => onSelectSite?.(site.id) }}
           >
             <Tooltip>{site.nama}</Tooltip>
-            <Popup maxWidth={380}>
-              <SpkluPopup site={site} />
-            </Popup>
+            <Popup maxWidth={380}><SpkluPopup site={site} /></Popup>
           </CircleMarker>
         ))}
 
-      {/* HCS area markers */}
-      {(layer === 'hcs' || layer === 'both') &&
-        Object.entries(hcsByArea).map(([area, info]) => {
+        {/* HCS area markers */}
+        {(layer === 'hcs' || layer === 'both') && Object.entries(hcsByArea).map(([area, info]) => {
           const center = AREA_CENTERS[area]
           if (!center) return null
           const radius = Math.min(30, 7 + Math.sqrt(info.total) * 0.45)
@@ -184,22 +240,56 @@ export default function SpkluMap({
               key={`hcs-${area}`}
               center={center}
               radius={radius}
-              pathOptions={{
-                color: '#ffffff',
-                weight: 3,
-                fillColor: COLORS.HCS,
-                fillOpacity: 0.85,
-              }}
+              pathOptions={{ color: '#ffffff', weight: 3, fillColor: COLORS.HCS, fillOpacity: 0.85 }}
             >
-              <Tooltip>
-                {area}: {fmtNumber(info.total)} catatan HCS
-              </Tooltip>
-              <Popup maxWidth={320}>
-                <HcsPopup area={area} total={info.total} brands={sortedBrands} />
-              </Popup>
+              <Tooltip>{area}: {fmtNumber(info.total)} catatan HCS</Tooltip>
+              <Popup maxWidth={300}><HcsPopup area={area} total={info.total} brands={sortedBrands} /></Popup>
             </CircleMarker>
           )
         })}
-    </MapContainer>
+      </MapContainer>
+
+      {/* Basemap switcher - bottom left */}
+      <div style={{ ...floatingPanel, bottom: 16, left: 16, display: 'flex', gap: 3, padding: 4 }}>
+        {(Object.keys(BASEMAPS) as BasemapKey[]).map((k) => (
+          <button
+            key={k}
+            onClick={() => setBasemap(k)}
+            style={{
+              padding: '5px 11px',
+              borderRadius: 10,
+              fontSize: 11,
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: 'none',
+              transition: 'all 0.15s',
+              background: basemap === k ? 'linear-gradient(135deg, #6C63FF, #3B82F6)' : 'transparent',
+              color: basemap === k ? '#fff' : '#64748b',
+            }}
+          >
+            {BASEMAPS[k].label}
+          </button>
+        ))}
+      </div>
+
+      {/* Reset center - bottom right */}
+      <button
+        onClick={() => setResetKey((k) => k + 1)}
+        style={{
+          ...floatingPanel,
+          bottom: 16,
+          right: 16,
+          padding: '6px 12px',
+          fontSize: 11,
+          fontWeight: 600,
+          color: '#6C63FF',
+          cursor: 'pointer',
+          border: '1px solid rgba(108,99,255,0.18)',
+          background: 'rgba(255,255,255,0.94)',
+        }}
+      >
+        &#8635; Pusatkan Peta
+      </button>
+    </div>
   )
 }

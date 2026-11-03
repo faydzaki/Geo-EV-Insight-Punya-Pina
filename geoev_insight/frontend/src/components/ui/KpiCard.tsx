@@ -4,7 +4,7 @@ interface KpiCardProps {
   title: string
   value: string | number
   subtitle?: string
-  icon?: string
+  icon?: React.ReactNode
   highlight?: boolean
   color?: 'teal' | 'blue' | 'purple' | 'amber' | 'rose'
 }

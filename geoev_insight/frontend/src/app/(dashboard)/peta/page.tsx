@@ -9,7 +9,7 @@ import FilterBar from '@/components/ui/FilterBar'
 import InsightBlock from '@/components/ui/InsightBlock'
 import DataTable from '@/components/ui/DataTable'
 import type { Spklu } from '@/types'
-import { Download, ChevronDown, MapPin } from 'lucide-react'
+import { Download, ChevronDown, MapPin, Zap, Plug, Gauge } from 'lucide-react'
 
 const SpkluMap = dynamic(() => import('@/components/map/SpkluMap'), { ssr: false })
 
@@ -121,10 +121,10 @@ export default function PetaPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard title="Titik SPKLU"   value={fmtNumber(sites.length)} subtitle="Lokasi terpilih" icon="📍" color="teal" />
-          <KpiCard title="Unit Charger"  value={fmtNumber(totalUnit)}    subtitle="Lokasi terpilih" icon="⚡" color="blue" />
-          <KpiCard title="Konektor"      value={fmtNumber(totalConnector)} subtitle="Lokasi terpilih" icon="🔌" color="purple" />
-          <KpiCard title="Total Daya"    value={`${fmtNumber(totalDaya, 1)} kW`} subtitle="Daya terpasang" icon="⚙️" color="amber" />
+          <KpiCard title="Titik SPKLU"   value={fmtNumber(sites.length)} subtitle="Lokasi terpilih" icon={<MapPin size={18} />} color="teal" />
+          <KpiCard title="Unit Charger"  value={fmtNumber(totalUnit)}    subtitle="Lokasi terpilih" icon={<Zap size={18} />} color="blue" />
+          <KpiCard title="Konektor"      value={fmtNumber(totalConnector)} subtitle="Lokasi terpilih" icon={<Plug size={18} />} color="purple" />
+          <KpiCard title="Total Daya"    value={`${fmtNumber(totalDaya, 1)} kW`} subtitle="Daya terpasang" icon={<Gauge size={18} />} color="amber" />
         </div>
       )}
 
@@ -162,7 +162,8 @@ export default function PetaPage() {
         <div className="flex gap-5">
           <div className="flex-1 min-w-0">
             <SpkluMap sites={sites} hcsData={hcs} layer={layer}
-              onSelectSite={setSelectedId} showCoverage={showCoverage} />
+              onSelectSite={setSelectedId} showCoverage={showCoverage}
+              flyToArea={filters.area} />
 
             {/* Legend */}
             <div className="flex flex-wrap gap-4 mt-3 text-xs text-slate-500">
@@ -205,8 +206,9 @@ export default function PetaPage() {
                   <p className="text-xs text-slate-500 leading-relaxed pl-5">{selectedSite.alamat}</p>
                 )}
                 <div className="pl-5">
-                  <div className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 text-xs font-semibold px-2.5 py-1 rounded-full">
-                    ⚡ {fmtNumber(selectedSite.daya, 1)} kW · {selectedSite.unit} unit · {selectedSite.connector} konektor
+                  <div className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-primary-100">
+                    <Zap size={11} className="shrink-0 text-primary-600" />
+                    <span>{fmtNumber(selectedSite.daya, 1)} kW &middot; {selectedSite.unit} unit &middot; {selectedSite.connector} konektor</span>
                   </div>
                 </div>
                 {selectedSite.rincian?.length > 0 && (
@@ -247,6 +249,8 @@ export default function PetaPage() {
               pengelola: s.pengelola, unit: s.unit, connector: s.connector,
               daya: Math.round(s.daya * 10) / 10,
             })) as unknown as Record<string, unknown>[]}
+            searchable
+            searchPlaceholder="Cari nama atau wilayah SPKLU…"
             columns={[
               { key: 'nama',      label: 'Nama' },
               { key: 'wilayah',   label: 'Kabupaten / kota' },

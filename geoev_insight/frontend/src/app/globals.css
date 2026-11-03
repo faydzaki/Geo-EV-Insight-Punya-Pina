@@ -133,3 +133,75 @@ select {
   filter: blur(60px);
   pointer-events: none;
 }
+
+/* ── Leaflet popup glass styling ────────────────────────── */
+.leaflet-popup-content-wrapper {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(108, 99, 255, 0.12) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 32px rgba(108, 99, 255, 0.15), 0 2px 8px rgba(0,0,0,0.06) !important;
+  padding: 0 !important;
+}
+.leaflet-popup-content {
+  margin: 14px 16px !important;
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif !important;
+}
+.leaflet-popup-tip-container { display: none !important; }
+.leaflet-popup-close-button {
+  color: #6C63FF !important;
+  font-size: 20px !important;
+  font-weight: 300 !important;
+  top: 4px !important;
+  right: 8px !important;
+}
+.leaflet-popup-close-button:hover {
+  color: #3B82F6 !important;
+  background: transparent !important;
+}
+
+/* ── Print / PDF styles (Kajian Wilayah) ────────────────── */
+@media print {
+  /* Hide everything except main content */
+  header,
+  aside,
+  nav,
+  .no-print { display: none !important; }
+
+  /* Reset backgrounds & shadows */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .card-glass,
+  .glass {
+    background: white !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Keep brand gradient text readable */
+  [style*="linear-gradient"] {
+    background: #6C63FF !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Ensure full width */
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  .max-w-screen-2xl {
+    max-width: 100% !important;
+  }
+
+  /* Page breaks */
+  .card-glass { break-inside: avoid; }
+
+  /* Sidebar hidden */
+  [class*="lg:static"] { display: none !important; }
+}

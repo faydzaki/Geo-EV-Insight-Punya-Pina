@@ -5,12 +5,13 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Legend,
 } from 'recharts'
-import { fetchHcs, fetchAreas } from '@/lib/api'
+import { fetchHcs, fetchAreas, downloadExport } from '@/lib/api'
 import { fmtNumber } from '@/lib/utils'
 import { CHART_BLUE } from '@/lib/constants'
 import InsightBlock from '@/components/ui/InsightBlock'
 import KpiCard from '@/components/ui/KpiCard'
-import { ChevronDown, ShieldCheck } from 'lucide-react'
+import DataTable from '@/components/ui/DataTable'
+import { ChevronDown, ShieldCheck, FileSpreadsheet, MapPin, Car, Download } from 'lucide-react'
 
 const PIE_COLORS = ['#6C63FF','#3B82F6','#8B5CF6','#E9AD2F','#006199','#10b981','#f97316','#e11d48']
 
@@ -27,6 +28,13 @@ function SkeletonKpi() {
 
 export default function HcsPage() {
   const [selectedArea, setSelectedArea] = useState('Semua')
+  const [exporting, setExporting] = useState(false)
+
+  async function handleExport() {
+    setExporting(true)
+    try { await downloadExport('/api/export/hcs', 'hcs-rekap.xlsx') }
+    finally { setExporting(false) }
+  }
 
   const { data: hcsRes, isLoading } = useQuery({
     queryKey: ['hcs'],
@@ -69,22 +77,42 @@ export default function HcsPage() {
       : 'Data catatan HCS belum tersedia'
     : `${selectedArea}: ${fmtNumber(totalHcs)} catatan HCS tercatat`
 
+  // Table data for brand distribution
+  const brandTableData = byBrand.map((b, i) => ({
+    Ranking: i + 1,
+    'Kategori Kendaraan': b.merk,
+    'Jumlah Catatan': b.jumlah,
+    'Persentase (%)': byBrand.length
+      ? ((b.jumlah / byBrand.reduce((s, x) => s + x.jumlah, 0)) * 100).toFixed(1)
+      : '0',
+  })) as unknown as Record<string, unknown>[]
+
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div>
-        <div className="inline-flex items-center gap-2 mb-2">
-          <span className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full"
-            style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}>02</span>
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Home Charging</span>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div className="inline-flex items-center gap-2 mb-2">
+            <span className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full"
+              style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}>02</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Home Charging</span>
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            Distribusi catatan Home Charging di Jawa Timur
+          </h1>
+          <p className="text-slate-500 text-sm mt-1">
+            Setiap baris HCS dengan kabupaten/kota valid dihitung, termasuk UID yang berulang.
+          </p>
+          {hcsRes?.updated && <p className="text-xs text-slate-400 mt-0.5">Diperbarui: {hcsRes.updated}</p>}
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          Distribusi catatan Home Charging di Jawa Timur
-        </h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Setiap baris HCS dengan kabupaten/kota valid dihitung, termasuk UID yang berulang.
-        </p>
-        {hcsRes?.updated && <p className="text-xs text-slate-400 mt-0.5">Diperbarui: {hcsRes.updated}</p>}
+        <button
+          onClick={handleExport}
+          disabled={exporting || isLoading}
+          className="flex items-center gap-1.5 shrink-0 text-xs font-medium text-slate-600 hover:text-primary-700 border border-slate-200 hover:border-primary-300 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 mt-1"
+        >
+          <Download size={13} />
+          {exporting ? 'Mengunduh…' : 'Export Excel'}
+        </button>
       </div>
 
       {/* Filter */}
@@ -104,9 +132,9 @@ export default function HcsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{[0,1,2].map((i) => <SkeletonKpi key={i} />)}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <KpiCard title="Total Catatan HCS"      value={fmtNumber(totalHcs)}      subtitle="Termasuk UID berulang"         icon="🏠" color="teal" />
-          <KpiCard title="Kabupaten / Kota"        value={fmtNumber(byArea.length)} subtitle="Dengan catatan HCS valid"      icon="🗺️" color="blue" />
-          <KpiCard title="Kategori Kendaraan"      value={fmtNumber(byBrand.length)} subtitle="Kategori unik"               icon="🚗" color="purple" />
+          <KpiCard title="Total Catatan HCS"   value={fmtNumber(totalHcs)}       subtitle="Termasuk UID berulang"    icon={<FileSpreadsheet size={18} />} color="teal" />
+          <KpiCard title="Kabupaten / Kota"    value={fmtNumber(byArea.length)}  subtitle="Dengan catatan HCS valid" icon={<MapPin size={18} />}          color="blue" />
+          <KpiCard title="Kategori Kendaraan"  value={fmtNumber(byBrand.length)} subtitle="Kategori unik"            icon={<Car size={18} />}             color="purple" />
         </div>
       )}
 
@@ -159,6 +187,25 @@ export default function HcsPage() {
                 <Tooltip formatter={(v: number) => [fmtNumber(v), 'Catatan HCS']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
               </PieChart>
             </ResponsiveContainer>
+          )}
+
+          {/* Brand table with live search */}
+          {byBrand.length > 0 && (
+            <div className="mt-6 border-t border-slate-100 pt-5">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">Rincian kategori kendaraan</h3>
+              <DataTable
+                data={brandTableData}
+                searchable
+                searchPlaceholder="Cari kategori kendaraan…"
+                pageSize={10}
+                columns={[
+                  { key: 'Ranking',             label: '#',                    className: 'w-10 text-slate-400 font-mono' },
+                  { key: 'Kategori Kendaraan',  label: 'Kategori Kendaraan',   className: 'font-medium text-slate-800' },
+                  { key: 'Jumlah Catatan',      label: 'Jumlah Catatan',       className: 'text-right', render: (v) => <span className="font-semibold text-primary-700">{fmtNumber(v as number)}</span> },
+                  { key: 'Persentase (%)',       label: 'Persentase',           className: 'text-right', render: (v) => <span className="text-slate-500">{String(v)}%</span> },
+                ]}
+              />
+            </div>
           )}
         </div>
       </details>
