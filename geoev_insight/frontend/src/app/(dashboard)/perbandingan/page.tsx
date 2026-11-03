@@ -4,14 +4,24 @@ import { useQuery } from '@tanstack/react-query'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
-import { fetchCompare, fetchAreas } from '@/lib/api'
+import { fetchCompare, fetchAreas, downloadExport } from '@/lib/api'
 import { fmtNumber } from '@/lib/utils'
 import InsightBlock from '@/components/ui/InsightBlock'
 import DataTable from '@/components/ui/DataTable'
-import { AlertTriangle, Info } from 'lucide-react'
+import { AlertTriangle, Info, Download } from 'lucide-react'
 
 export default function PerbandinganPage() {
   const [selectedArea, setSelectedArea] = useState('Semua')
+  const [exporting, setExporting] = useState(false)
+
+  async function handleExport() {
+    setExporting(true)
+    try {
+      await downloadExport('/api/export/compare', 'perbandingan-export.xlsx')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const { data: compareRes, isLoading } = useQuery({
     queryKey: ['compare', selectedArea],
@@ -52,7 +62,8 @@ export default function PerbandinganPage() {
   return (
     <div className="space-y-6 max-w-screen-2xl">
       {/* Header */}
-      <div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
         <span className="text-xs font-bold text-primary-500 uppercase tracking-widest">03</span>
         <h1 className="text-2xl font-bold text-gray-900 mt-1">
           Perbandingan catatan HCS dan SPKLU per kabupaten/kota
@@ -61,6 +72,15 @@ export default function PerbandinganPage() {
           Rasio dihitung dari jumlah baris HCS dibagi titik SPKLU pada kabupaten/kota yang sama di
           Jawa Timur.
         </p>
+        </div>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="flex items-center gap-2 shrink-0 text-sm font-medium text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+        >
+          <Download size={14} />
+          Export Excel
+        </button>
       </div>
 
       {/* Area filter */}

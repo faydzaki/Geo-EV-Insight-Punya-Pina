@@ -5,7 +5,7 @@ import { RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 
 export default function TopBar() {
-  const { username, isAdmin } = useAuth()
+  const { user, isAdmin } = useAuth()
   const qc = useQueryClient()
   const [refreshing, setRefreshing] = useState(false)
 
@@ -27,14 +27,13 @@ export default function TopBar() {
 
       <div className="flex items-center gap-3 text-sm">
         <span className="text-gray-500">Login sebagai</span>
-        <span className="font-semibold text-gray-800">{username}</span>
+        <span className="font-semibold text-gray-800">{user?.display_name || user?.username}</span>
         {isAdmin && (
           <span className="text-xs bg-primary-100 text-primary-700 px-2.5 py-0.5 rounded-full font-medium">
-            Admin
+            {user?.role === 'super_admin' ? 'Super Admin' : 'Admin'}
           </span>
         )}
       </div>
     </header>
   )
 }
-

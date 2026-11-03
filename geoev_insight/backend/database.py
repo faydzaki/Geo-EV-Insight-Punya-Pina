@@ -25,6 +25,12 @@ from sqlalchemy.engine import URL
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.dialects.mysql import LONGTEXT
 
+try:
+    import bcrypt as _bcrypt
+    _BCRYPT_AVAILABLE = True
+except ImportError:
+    _BCRYPT_AVAILABLE = False
+
 BASE = Path(__file__).resolve().parent
 load_dotenv(BASE / ".env", override=False)
 
@@ -98,6 +104,19 @@ change_log = Table(
     mysql_engine="InnoDB", mysql_charset="utf8mb4",
 )
 
+users = Table(
+    "users", _metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("username", String(80), unique=True, nullable=False),
+    Column("password_hash", String(255), nullable=False),
+    Column("role", String(20), nullable=False, default="viewer"),  # super_admin, admin, viewer
+    Column("display_name", String(120), nullable=True),
+    Column("is_active", Integer, nullable=False, default=1),
+    Column("created_at", DateTime, nullable=False),
+    Column("last_login", DateTime, nullable=True),
+    mysql_engine="InnoDB", mysql_charset="utf8mb4",
+)
+
 _engine = None
 
 
@@ -140,6 +159,7 @@ def init_db():
                     conn.execute(insert(metadata_values).values(k="_write_lock", v="1"))
         except IntegrityError:
             pass  # Another worker initialized the same lock row.
+        migrate_env_users()  # Migrate admin/viewer accounts from .env on first run.
     except Exception as exc:
         raise RuntimeError(
             "Gagal menghubungkan MySQL. Pastikan server aktif, database sudah "
@@ -150,6 +170,132 @@ def init_db():
 
 def _stamp():
     return datetime.now(ZoneInfo("Asia/Jakarta")).replace(tzinfo=None)
+
+
+def hash_password(plain: str) -> str:
+    """Hash a plain-text password with bcrypt."""
+    if not _BCRYPT_AVAILABLE:
+        raise RuntimeError("bcrypt is not installed. Run: pip install bcrypt>=4.1")
+    return _bcrypt.hashpw(plain.encode(), _bcrypt.gensalt()).decode()
+
+
+def check_password(plain: str, hashed: str) -> bool:
+    """Verify a plain-text password against a bcrypt hash."""
+    if not _BCRYPT_AVAILABLE:
+        return False
+    try:
+        return _bcrypt.checkpw(plain.encode(), hashed.encode())
+    except Exception:
+        return False
+
+
+def migrate_env_users():
+    """Migrate admin/viewer accounts dari .env ke tabel users (sekali saja)."""
+    if not _BCRYPT_AVAILABLE:
+        return  # Graceful degradation: skip migration if bcrypt not installed.
+    admin_user = os.getenv("GEOEV_ADMIN_USER", "")
+    admin_pass = os.getenv("GEOEV_ADMIN_PASSWORD", "")
+    viewer_user = os.getenv("GEOEV_VIEWER_USER", "")
+    viewer_pass = os.getenv("GEOEV_VIEWER_PASSWORD", "")
+
+    with get_engine().begin() as conn:
+        for uname, upass, role in [
+            (admin_user, admin_pass, "super_admin"),
+            (viewer_user, viewer_pass, "viewer"),
+        ]:
+            if not uname or not upass:
+                continue
+            existing = conn.execute(select(users).where(users.c.username == uname)).first()
+            if existing is None:
+                conn.execute(insert(users).values(
+                    username=uname,
+                    password_hash=hash_password(upass),
+                    role=role,
+                    display_name=uname.title(),
+                    is_active=1,
+                    created_at=_stamp(),
+                ))
+
+
+def authenticate_user(username: str, password: str):
+    """Return user dict jika valid, None jika tidak."""
+    with get_engine().connect() as conn:
+        row = conn.execute(select(users).where(
+            (users.c.username == username) & (users.c.is_active == 1)
+        )).mappings().first()
+    if row is None:
+        return None
+    row = dict(row)
+    if not check_password(password, row["password_hash"]):
+        return None
+    # Update last_login
+    with get_engine().begin() as conn:
+        conn.execute(update(users).where(users.c.id == row["id"]).values(last_login=_stamp()))
+    return row
+
+
+def get_all_users():
+    with get_engine().connect() as conn:
+        rows = conn.execute(select(users).order_by(users.c.id)).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def create_user(username: str, password: str, role: str, display_name: str = ""):
+    if role not in ("super_admin", "admin", "viewer"):
+        raise ValueError("Role tidak valid")
+    if len(username) < 3 or len(username) > 80:
+        raise ValueError("Username harus 3–80 karakter")
+    if len(password) < 8:
+        raise ValueError("Password minimal 8 karakter")
+    with get_engine().begin() as conn:
+        existing = conn.execute(select(users).where(users.c.username == username)).first()
+        if existing:
+            raise ValueError(f"Username '{username}' sudah digunakan")
+        result = conn.execute(insert(users).values(
+            username=username,
+            password_hash=hash_password(password),
+            role=role,
+            display_name=display_name or username.title(),
+            is_active=1,
+            created_at=_stamp(),
+        ))
+        return int(result.inserted_primary_key[0])
+
+
+def update_user(user_id: int, data: dict):
+    """Update user. Allowed fields: display_name, role, is_active, password."""
+    allowed = {"display_name", "role", "is_active", "password"}
+    values = {}
+    for key, val in data.items():
+        if key not in allowed:
+            continue
+        if key == "role" and val not in ("super_admin", "admin", "viewer"):
+            raise ValueError("Role tidak valid")
+        if key == "is_active" and val not in (0, 1):
+            raise ValueError("is_active harus 0 atau 1")
+        if key == "password":
+            if len(str(val)) < 8:
+                raise ValueError("Password minimal 8 karakter")
+            values["password_hash"] = hash_password(str(val))
+        else:
+            values[key] = val
+    if not values:
+        raise ValueError("Tidak ada field yang valid untuk diupdate")
+    with get_engine().begin() as conn:
+        row = conn.execute(select(users).where(users.c.id == user_id)).first()
+        if row is None:
+            raise ValueError("User tidak ditemukan")
+        conn.execute(update(users).where(users.c.id == user_id).values(**values))
+
+
+def delete_user(user_id: int, current_user_id: int):
+    if user_id == current_user_id:
+        raise ValueError("Tidak dapat menghapus akun sendiri")
+    with get_engine().begin() as conn:
+        row = conn.execute(select(users).where(users.c.id == user_id)).first()
+        if row is None:
+            raise ValueError("User tidak ditemukan")
+        conn.execute(delete(users).where(users.c.id == user_id))
 
 
 def _mark_updated(conn, dataset, count, upload=True):

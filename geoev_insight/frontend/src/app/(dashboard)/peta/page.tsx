@@ -2,13 +2,14 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
-import { fetchSpklu, fetchHcs, fetchAreas } from '@/lib/api'
+import { fetchSpklu, fetchHcs, fetchAreas, downloadExport } from '@/lib/api'
 import { fmtNumber } from '@/lib/utils'
 import KpiCard from '@/components/ui/KpiCard'
 import FilterBar from '@/components/ui/FilterBar'
 import InsightBlock from '@/components/ui/InsightBlock'
 import DataTable from '@/components/ui/DataTable'
 import type { Spklu } from '@/types'
+import { Download } from 'lucide-react'
 
 const SpkluMap = dynamic(() => import('@/components/map/SpkluMap'), { ssr: false })
 
@@ -30,6 +31,8 @@ export default function PetaPage() {
   })
   const [layer, setLayer] = useState<Layer>('spklu')
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [showCoverage, setShowCoverage] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const { data: spkluRes, isLoading } = useQuery({
     queryKey: ['spklu', filters],
@@ -85,20 +88,52 @@ export default function PetaPage() {
     setFilters({ prov: 'Semua', owner: 'Semua', area: 'Semua', power: 'all', search: '' })
   }
 
+  async function handleExport(type: 'xlsx' | 'csv') {
+    setExporting(true)
+    try {
+      await downloadExport(
+        type === 'xlsx' ? '/api/export/spklu' : '/api/export/spklu.csv',
+        type === 'xlsx' ? 'spklu-export.xlsx' : 'spklu-export.csv'
+      )
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-screen-2xl">
       {/* Header */}
-      <div>
-        <span className="text-xs font-bold text-primary-500 uppercase tracking-widest">01</span>
-        <h1 className="text-2xl font-bold text-gray-900 mt-1">
-          Jaringan Pengisian Jawa Timur &amp; Bali
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Peta menampilkan lokasi SPKLU dan jumlah catatan HCS per kabupaten/kota di Jawa Timur.
-        </p>
-        {spkluRes?.updated && (
-          <p className="text-xs text-gray-400 mt-0.5">Diperbarui: {spkluRes.updated}</p>
-        )}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <span className="text-xs font-bold text-primary-500 uppercase tracking-widest">01</span>
+          <h1 className="text-2xl font-bold text-gray-900 mt-1">
+            Jaringan Pengisian Jawa Timur &amp; Bali
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            Peta menampilkan lokasi SPKLU dan jumlah catatan HCS per kabupaten/kota di Jawa Timur.
+          </p>
+          {spkluRes?.updated && (
+            <p className="text-xs text-gray-400 mt-0.5">Diperbarui: {spkluRes.updated}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => handleExport('xlsx')}
+            disabled={exporting}
+            className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <Download size={13} />
+            Excel
+          </button>
+          <button
+            onClick={() => handleExport('csv')}
+            disabled={exporting}
+            className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 border border-gray-300 hover:border-gray-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <Download size={13} />
+            CSV
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -143,8 +178,8 @@ export default function PetaPage() {
           }
         />
 
-        {/* Layer toggle */}
-        <div className="flex flex-wrap gap-4 mb-4">
+        {/* Controls */}
+        <div className="flex flex-wrap gap-4 mb-4 items-center">
           {LAYER_OPTIONS.map((opt) => (
             <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
               <input
@@ -160,6 +195,15 @@ export default function PetaPage() {
               </span>
             </label>
           ))}
+          <label className="flex items-center gap-2 cursor-pointer text-sm ml-auto select-none">
+            <input
+              type="checkbox"
+              checked={showCoverage}
+              onChange={(e) => setShowCoverage(e.target.checked)}
+              className="accent-primary-500"
+            />
+            <span className="text-gray-600">Tampilkan jangkauan 5 km</span>
+          </label>
         </div>
 
         {/* Map + Detail panel */}
@@ -170,10 +214,11 @@ export default function PetaPage() {
               hcsData={hcs}
               layer={layer}
               onSelectSite={setSelectedId}
+              showCoverage={showCoverage}
             />
 
             {/* Legend */}
-            <div className="flex gap-5 mt-3 text-xs text-gray-500">
+            <div className="flex flex-wrap gap-5 mt-3 text-xs text-gray-500">
               <div className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded-full bg-[#006199] inline-block" />
                 PLN
@@ -190,6 +235,12 @@ export default function PetaPage() {
                 <span className="w-3 h-3 rounded-full bg-[#6B4EC6] inline-block" />
                 Catatan HCS
               </div>
+              {showCoverage && (
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full border-2 border-blue-400 bg-blue-100 inline-block" />
+                  Jangkauan 5 km
+                </div>
+              )}
             </div>
             <p className="text-xs text-gray-400 mt-1">
               Klik titik untuk detail lokasi. Peta memerlukan koneksi internet.
@@ -236,7 +287,7 @@ export default function PetaPage() {
         </div>
       </div>
 
-      {/* Detail table (collapsible) */}
+      {/* Detail table */}
       <details className="bg-white rounded-xl border border-gray-200">
         <summary className="px-6 py-4 cursor-pointer font-semibold text-gray-700 hover:bg-gray-50 rounded-xl transition-colors">
           Rincian pengelola, daya charger, dan data SPKLU ({sites.length} lokasi)
@@ -259,4 +310,3 @@ export default function PetaPage() {
     </div>
   )
 }
-

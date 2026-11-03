@@ -441,6 +441,10 @@ CORS(server, origins=["http://localhost:3000", "http://127.0.0.1:3000"])
 @server.before_request
 def require_basic_auth():
     """Lindungi semua halaman dan callback; deploy di balik HTTPS + akses terbatas."""
+    # Lewati endpoint REST API (/api/*) dan request OPTIONS preflight agar tidak memicu dialog Basic Auth browser
+    if request.path.startswith("/api") or request.method == "OPTIONS":
+        return None
+
     auth = request.authorization
     good = False
     if auth and auth.username is not None and auth.password is not None:

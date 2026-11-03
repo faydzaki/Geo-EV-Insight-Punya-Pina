@@ -1,54 +1,66 @@
 'use client'
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import {
-  saveCredentials,
-  clearCredentials,
-  getCredentials,
-  getStoredAdminFlag,
-  decodeUsername,
-} from '@/lib/auth'
+import { saveToken, clearToken, decodeTokenPayload, isTokenExpired } from '@/lib/auth'
+
+interface AuthUser {
+  id: number
+  username: string
+  role: 'super_admin' | 'admin' | 'viewer'
+  display_name: string
+}
 
 interface AuthContextType {
   isAuthenticated: boolean
+  user: AuthUser | null
   isAdmin: boolean
-  username: string | null
-  login: (username: string, password: string, isAdmin: boolean) => void
+  isSuperAdmin: boolean
+  login: (token: string) => void
   logout: () => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [username, setUsername] = useState<string | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
 
   useEffect(() => {
-    const creds = getCredentials()
-    if (creds) {
-      const uname = decodeUsername()
-      setIsAuthenticated(true)
-      setUsername(uname)
-      setIsAdmin(getStoredAdminFlag())
+    if (!isTokenExpired()) {
+      const payload = decodeTokenPayload()
+      if (payload) {
+        setUser({
+          id: payload.uid ?? Number(payload.sub),
+          username: payload.username,
+          role: payload.role,
+          display_name: payload.display_name,
+        })
+      }
     }
   }, [])
 
-  function login(uname: string, password: string, adminFlag: boolean) {
-    saveCredentials(uname, password, adminFlag)
-    setIsAuthenticated(true)
-    setIsAdmin(adminFlag)
-    setUsername(uname)
+  function login(token: string) {
+    saveToken(token)
+    const payload = decodeTokenPayload()
+    if (payload) {
+      setUser({
+        id: payload.uid ?? Number(payload.sub),
+        username: payload.username,
+        role: payload.role,
+        display_name: payload.display_name,
+      })
+    }
   }
 
   function logout() {
-    clearCredentials()
-    setIsAuthenticated(false)
-    setIsAdmin(false)
-    setUsername(null)
+    clearToken()
+    setUser(null)
   }
 
+  const isAuthenticated = user !== null
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const isSuperAdmin = user?.role === 'super_admin'
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isAdmin, username, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, isAdmin, isSuperAdmin, login, logout }}>
       {children}
     </AuthContext.Provider>
   )
@@ -59,4 +71,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used inside AuthProvider')
   return ctx
 }
-

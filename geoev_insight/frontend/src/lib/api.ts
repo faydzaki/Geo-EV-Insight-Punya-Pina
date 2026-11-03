@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getAuthHeader, makeBasicHeader } from './auth'
+import { getAuthHeader } from './auth'
 import type {
   SpkluFilters,
   SpkluListResponse,
@@ -14,6 +14,59 @@ const BASE = '/api'
 
 function headers() {
   return { ...getAuthHeader() }
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+export async function loginApi(username: string, password: string): Promise<{ token: string }> {
+  const res = await axios.post(`${BASE}/auth/login`, { username, password })
+  return res.data
+}
+
+export async function fetchMe(): Promise<{ id: number; username: string; role: string; display_name: string }> {
+  const res = await axios.get(`${BASE}/auth/me`, { headers: headers() })
+  return res.data
+}
+
+export async function changePassword(old_password: string, new_password: string): Promise<void> {
+  await axios.post(`${BASE}/auth/change-password`, { old_password, new_password }, { headers: headers() })
+}
+
+// ─── Users (super_admin) ─────────────────────────────────────────────────────
+
+export interface UserRecord {
+  id: number
+  username: string
+  role: 'super_admin' | 'admin' | 'viewer'
+  display_name: string | null
+  active: 0 | 1
+  created_at: string
+}
+
+export async function fetchUsers(): Promise<{ data: UserRecord[] }> {
+  const res = await axios.get(`${BASE}/users`, { headers: headers() })
+  return res.data
+}
+
+export async function createUser(payload: {
+  username: string
+  password: string
+  role: string
+  display_name?: string
+}): Promise<{ id: number }> {
+  const res = await axios.post(`${BASE}/users`, payload, { headers: headers() })
+  return res.data
+}
+
+export async function updateUser(
+  id: number,
+  payload: { role?: string; display_name?: string; active?: 0 | 1; password?: string }
+): Promise<void> {
+  await axios.put(`${BASE}/users/${id}`, payload, { headers: headers() })
+}
+
+export async function deleteUser(id: number): Promise<void> {
+  await axios.delete(`${BASE}/users/${id}`, { headers: headers() })
 }
 
 // ─── Data reads ────────────────────────────────────────────────────────────
@@ -64,26 +117,6 @@ export async function fetchHistory(): Promise<{ data: Record<string, unknown>[] 
 export async function fetchAreas(): Promise<{ data: string[] }> {
   const res = await axios.get(`${BASE}/areas`, { headers: headers() })
   return res.data
-}
-
-// ─── Auth check ─────────────────────────────────────────────────────────────
-
-export async function checkAuth(
-  username: string,
-  password: string
-): Promise<{ role: 'admin' | 'viewer' }> {
-  const encoded = makeBasicHeader(username, password)
-  const authHeader = { Authorization: `Basic ${encoded}` }
-
-  // First verify credentials work at all
-  await axios.get(`${BASE}/metadata`, { headers: authHeader })
-
-  // Check admin by trying history endpoint
-  const historyRes = await axios.get(`${BASE}/history`, {
-    headers: authHeader,
-    validateStatus: (s) => s < 500,
-  })
-  return { role: historyRes.status === 200 ? 'admin' : 'viewer' }
 }
 
 // ─── Admin writes ───────────────────────────────────────────────────────────
@@ -153,10 +186,7 @@ export async function uploadSpklu(file: File): Promise<{ message: string }> {
   return res.data
 }
 
-export async function uploadHcs(
-  file: File,
-  mode: 'replace' | 'add'
-): Promise<{ message: string }> {
+export async function uploadHcs(file: File, mode: 'replace' | 'add'): Promise<{ message: string }> {
   const form = new FormData()
   form.append('file', file)
   form.append('mode', mode)
@@ -166,3 +196,15 @@ export async function uploadHcs(
   return res.data
 }
 
+// ─── Export ──────────────────────────────────────────────────────────────────
+
+export async function downloadExport(url: string, filename: string): Promise<void> {
+  const res = await axios.get(url, { headers: headers(), responseType: 'blob' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(res.data)
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(link.href)
+}

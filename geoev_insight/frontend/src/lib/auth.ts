@@ -1,45 +1,49 @@
-const CRED_KEY = 'geoev_credentials'
-const ADMIN_KEY = 'geoev_is_admin'
+const JWT_KEY = 'geoev_jwt'
 
-export function saveCredentials(username: string, password: string, isAdmin: boolean) {
+export function saveToken(token: string): void {
   if (typeof window === 'undefined') return
-  sessionStorage.setItem(CRED_KEY, btoa(`${username}:${password}`))
-  localStorage.setItem(ADMIN_KEY, isAdmin ? '1' : '0')
+  localStorage.setItem(JWT_KEY, token)
 }
 
-export function getCredentials(): string | null {
+export function getToken(): string | null {
   if (typeof window === 'undefined') return null
-  return sessionStorage.getItem(CRED_KEY)
+  return localStorage.getItem(JWT_KEY)
 }
 
-export function clearCredentials() {
+export function clearToken(): void {
   if (typeof window === 'undefined') return
-  sessionStorage.removeItem(CRED_KEY)
-  localStorage.removeItem(ADMIN_KEY)
+  localStorage.removeItem(JWT_KEY)
 }
 
 export function getAuthHeader(): Record<string, string> {
-  const creds = getCredentials()
-  if (!creds) return {}
-  return { Authorization: `Basic ${creds}` }
+  const token = getToken()
+  if (!token) return {}
+  return { Authorization: `Bearer ${token}` }
 }
 
-export function getStoredAdminFlag(): boolean {
-  if (typeof window === 'undefined') return false
-  return localStorage.getItem(ADMIN_KEY) === '1'
-}
-
-export function decodeUsername(): string | null {
-  const creds = getCredentials()
-  if (!creds) return null
+export function decodeTokenPayload(): {
+  sub: string
+  uid?: number
+  username: string
+  role: 'super_admin' | 'admin' | 'viewer'
+  display_name: string
+  exp: number
+} | null {
+  const token = getToken()
+  if (!token) return null
   try {
-    return atob(creds).split(':')[0]
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const padded = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(padded))
+    return payload
   } catch {
     return null
   }
 }
 
-export function makeBasicHeader(username: string, password: string): string {
-  return btoa(`${username}:${password}`)
+export function isTokenExpired(): boolean {
+  const payload = decodeTokenPayload()
+  if (!payload) return true
+  return Date.now() / 1000 > payload.exp
 }
-

@@ -12,6 +12,7 @@ export interface Spklu {
   connector: number
   rincian: ChargerDetail[]
   aktif?: number
+  active?: 0 | 1
   token?: string
 }
 

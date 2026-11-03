@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, CircleMarker, Tooltip, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, CircleMarker, Tooltip, Popup, Circle } from 'react-leaflet'
 import { COLORS, AREA_CENTERS } from '@/lib/constants'
 import { fmtNumber } from '@/lib/utils'
 import type { Spklu, HcsRecord } from '@/types'
@@ -11,6 +11,7 @@ interface SpkluMapProps {
   hcsData: HcsRecord[]
   layer: 'spklu' | 'hcs' | 'both'
   onSelectSite?: (id: number) => void
+  showCoverage?: boolean
 }
 
 function SpkluPopup({ site }: { site: Spklu }) {
@@ -90,7 +91,13 @@ function HcsPopup({ area, total, brands }: { area: string; total: number; brands
   )
 }
 
-export default function SpkluMap({ sites, hcsData, layer, onSelectSite }: SpkluMapProps) {
+export default function SpkluMap({
+  sites,
+  hcsData,
+  layer,
+  onSelectSite,
+  showCoverage = false,
+}: SpkluMapProps) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
@@ -124,6 +131,24 @@ export default function SpkluMap({ sites, hcsData, layer, onSelectSite }: SpkluM
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         maxZoom={19}
       />
+
+      {/* Coverage buffer (5 km) */}
+      {showCoverage &&
+        (layer === 'spklu' || layer === 'both') &&
+        sites.map((site) => (
+          <Circle
+            key={`cov-${site.id}`}
+            center={[site.lat, site.lon]}
+            radius={5000}
+            pathOptions={{
+              color: '#3b82f6',
+              weight: 1,
+              fillColor: '#3b82f6',
+              fillOpacity: 0.08,
+              dashArray: '5,4',
+            }}
+          />
+        ))}
 
       {/* SPKLU markers */}
       {(layer === 'spklu' || layer === 'both') &&
@@ -178,4 +203,3 @@ export default function SpkluMap({ sites, hcsData, layer, onSelectSite }: SpkluM
     </MapContainer>
   )
 }
-

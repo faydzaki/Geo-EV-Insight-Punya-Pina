@@ -9,6 +9,7 @@ import {
   Lightbulb,
   CheckSquare,
   Settings,
+  Users,
   LogOut,
 } from 'lucide-react'
 import { cx } from '@/lib/utils'
@@ -23,7 +24,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const pathname = usePathname()
-  const { isAdmin, logout } = useAuth()
+  const { user, isAdmin, isSuperAdmin, logout } = useAuth()
 
   return (
     <aside className="w-64 shrink-0 bg-gray-900 text-white flex flex-col h-full">
@@ -82,12 +83,32 @@ export default function Sidebar() {
               <Settings size={16} className="shrink-0" />
               <span>Manajemen Data</span>
             </Link>
+            {isSuperAdmin && (
+              <Link
+                href="/admin/users"
+                className={cx(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                  pathname === '/admin/users'
+                    ? 'bg-primary-500 text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                )}
+              >
+                <Users size={16} className="shrink-0" />
+                <span>Manajemen User</span>
+              </Link>
+            )}
           </>
         )}
       </nav>
 
       {/* Footer */}
       <div className="p-4 border-t border-gray-800">
+        {user && (
+          <p className="text-xs text-gray-400 mb-1 truncate">
+            {user.display_name || user.username}
+            <span className="ml-1 text-gray-600">({user.role})</span>
+          </p>
+        )}
         <p className="text-xs text-gray-500 mb-0.5">SPKLU Jawa Timur dan Bali</p>
         <p className="text-xs text-gray-600">Data HCS hanya Jawa Timur</p>
         <button
@@ -101,4 +122,3 @@ export default function Sidebar() {
     </aside>
   )
 }
-

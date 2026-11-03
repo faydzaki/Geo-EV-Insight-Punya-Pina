@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { checkAuth } from '@/lib/api'
+import { loginApi } from '@/lib/api'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -17,8 +17,8 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      const { role } = await checkAuth(username, password)
-      login(username, password, role === 'admin')
+      const { token } = await loginApi(username, password)
+      login(token)
       router.push('/peta')
     } catch {
       setError('Username atau password salah. Pastikan server backend berjalan.')
@@ -43,23 +43,19 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Username
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Username</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
-              placeholder="admin atau viewer"
+              placeholder="Masukkan username"
               required
               autoComplete="username"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Password
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
             <input
               type="password"
               value={password}
@@ -92,4 +88,3 @@ export default function LoginPage() {
     </div>
   )
 }
-

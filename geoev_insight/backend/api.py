@@ -9,8 +9,9 @@ Dash creates:
     server.register_blueprint(api_module.bp)
     CORS(server, origins=["http://localhost:3000", "http://127.0.0.1:3000"])
 
-All endpoints require HTTP Basic Auth. Write endpoints (POST/PUT/PATCH) are
-restricted to the admin account.
+All endpoints require a valid JWT Bearer token obtained from POST /api/auth/login.
+Write endpoints (POST/PUT/PATCH) are restricted to admin/super_admin roles.
+User management endpoints are restricted to super_admin only.
 """
 from __future__ import annotations
 
@@ -19,11 +20,18 @@ import json
 import logging
 import os
 import secrets
+from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
 
 import pandas as pd
 from flask import Blueprint, Response, jsonify, request
+
+try:
+    import jwt as _jwt
+    _JWT_AVAILABLE = True
+except ImportError:
+    _JWT_AVAILABLE = False
 
 import database
 from storytelling import compare_areas, comparison_quality
@@ -37,85 +45,86 @@ logger = logging.getLogger(__name__)
 bp = Blueprint("api", __name__, url_prefix="/api")
 
 # ---------------------------------------------------------------------------
-# Auth helpers
-# (Credentials are read from env so that this module does not depend on the
-# order of initialisation relative to app.py.)
+# JWT Auth helpers
 # ---------------------------------------------------------------------------
 
-def _get_admin():
-    return os.getenv("GEOEV_ADMIN_USER", ""), os.getenv("GEOEV_ADMIN_PASSWORD", "")
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "geoev-dev-secret-change-in-production")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRY_HOURS = 8
 
 
-def _get_viewer():
-    return os.getenv("GEOEV_VIEWER_USER", ""), os.getenv("GEOEV_VIEWER_PASSWORD", "")
+def _make_jwt(user: dict) -> str:
+    if not _JWT_AVAILABLE:
+        raise RuntimeError("PyJWT is not installed. Run: pip install PyJWT>=2.8")
+    payload = {
+        "sub": str(user["id"]),       # PyJWT>=2.8 mensyaratkan sub berbentuk string
+        "uid": user["id"],            # simpan integer di field terpisah
+        "username": user["username"],
+        "role": user["role"],
+        "display_name": user.get("display_name") or user["username"],
+        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS),
+    }
+    return _jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
-def _check_auth(username: str | None, password: str | None) -> bool:
-    """Return True if credentials match admin OR viewer."""
-    if not username or not password:
-        return False
-    admin_u, admin_p = _get_admin()
-    viewer_u, viewer_p = _get_viewer()
-    is_admin = secrets.compare_digest(username, admin_u) and secrets.compare_digest(password, admin_p)
-    is_viewer = secrets.compare_digest(username, viewer_u) and secrets.compare_digest(password, viewer_p)
-    return is_admin or is_viewer
+def _decode_jwt(token: str) -> dict:
+    if not _JWT_AVAILABLE:
+        raise RuntimeError("PyJWT is not installed. Run: pip install PyJWT>=2.8")
+    return _jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM], options={"verify_sub": False})
 
 
-def _is_admin(username: str | None, password: str | None) -> bool:
-    if not username or not password:
-        return False
-    admin_u, admin_p = _get_admin()
-    return secrets.compare_digest(username, admin_u) and secrets.compare_digest(password, admin_p)
+def _get_jwt_user():
+    """Extract user info dari Bearer JWT token. Return None jika tidak valid."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[7:]
+    try:
+        return _decode_jwt(token)
+    except Exception:
+        return None
 
 
-def _unauthorized() -> Response:
-    return Response(
-        json.dumps({"error": "Autentikasi diperlukan"}),
-        status=401,
-        mimetype="application/json",
-        headers={"WWW-Authenticate": 'Basic realm="GeoEV Insight API"'},
-    )
-
-
-def _forbidden() -> Response:
-    return Response(
-        json.dumps({"error": "Hanya admin yang dapat melakukan operasi ini"}),
-        status=403,
-        mimetype="application/json",
-    )
-
-
-def api_auth_required(f):
-    """Decorator: require valid Basic Auth (admin or viewer)."""
+def jwt_auth_required(f):
+    """Decorator: butuh JWT token valid."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        auth = request.authorization
-        username = auth.username if auth else None
-        password = auth.password if auth else None
-        if not _check_auth(username, password):
-            return _unauthorized()
+        user = _get_jwt_user()
+        if user is None:
+            return jsonify({"error": "Autentikasi diperlukan"}), 401
         return f(*args, **kwargs)
     return decorated
 
 
-def api_admin_required(f):
-    """Decorator: require admin credentials."""
+def jwt_admin_required(f):
+    """Decorator: butuh JWT token dengan role admin atau super_admin."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        auth = request.authorization
-        username = auth.username if auth else None
-        password = auth.password if auth else None
-        if not _check_auth(username, password):
-            return _unauthorized()
-        if not _is_admin(username, password):
-            return _forbidden()
+        user = _get_jwt_user()
+        if user is None:
+            return jsonify({"error": "Autentikasi diperlukan"}), 401
+        if user.get("role") not in ("admin", "super_admin"):
+            return jsonify({"error": "Akses admin diperlukan"}), 403
+        return f(*args, **kwargs)
+    return decorated
+
+
+def jwt_superadmin_required(f):
+    """Decorator: butuh JWT token dengan role super_admin."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user = _get_jwt_user()
+        if user is None:
+            return jsonify({"error": "Autentikasi diperlukan"}), 401
+        if user.get("role") != "super_admin":
+            return jsonify({"error": "Akses super admin diperlukan"}), 403
         return f(*args, **kwargs)
     return decorated
 
 
 def _current_actor() -> str:
-    auth = request.authorization
-    return auth.username if auth and auth.username else "api"
+    user = _get_jwt_user()
+    return user["username"] if user and user.get("username") else "api"
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +254,7 @@ def _apply_spklu_filters(sites_df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 @bp.route("/spklu", methods=["GET"])
-@api_auth_required
+@jwt_auth_required
 def list_spklu():
     """GET /api/spklu — list semua SPKLU aktif dengan filter opsional."""
     try:
@@ -264,11 +273,12 @@ def list_spklu():
 
 
 @bp.route("/spklu/<int:site_id>", methods=["GET"])
-@api_auth_required
+@jwt_auth_required
 def get_spklu(site_id: int):
     """GET /api/spklu/<id> — detail satu lokasi SPKLU termasuk rincian charger."""
     try:
         snapshot, token = database.get_site(site_id)
+        aktif_val = snapshot.get("aktif", 1)
         return _json_response({
             "id": snapshot["id"],
             "nama": snapshot["nama"],
@@ -281,7 +291,8 @@ def get_spklu(site_id: int):
             "daya": snapshot["daya"],
             "unit": snapshot["unit"],
             "connector": snapshot["connector"],
-            "aktif": snapshot.get("aktif", 1),
+            "aktif": aktif_val,
+            "active": aktif_val,   # alias untuk frontend Next.js
             "rincian": snapshot.get("details", []),
             "token": token,
         })
@@ -293,7 +304,7 @@ def get_spklu(site_id: int):
 
 
 @bp.route("/hcs", methods=["GET"])
-@api_auth_required
+@jwt_auth_required
 def list_hcs():
     """GET /api/hcs — seluruh data HCS teragregasi."""
     try:
@@ -311,7 +322,7 @@ def list_hcs():
 
 
 @bp.route("/metadata", methods=["GET"])
-@api_auth_required
+@jwt_auth_required
 def get_metadata():
     """GET /api/metadata — timestamp terakhir update data."""
     try:
@@ -326,7 +337,7 @@ def get_metadata():
 
 
 @bp.route("/compare", methods=["GET"])
-@api_auth_required
+@jwt_auth_required
 def get_compare():
     """GET /api/compare — perbandingan HCS vs SPKLU per wilayah."""
     try:
@@ -355,7 +366,7 @@ def get_compare():
 
 
 @bp.route("/quality", methods=["GET"])
-@api_auth_required
+@jwt_auth_required
 def get_quality():
     """GET /api/quality — laporan kualitas data SPKLU."""
     try:
@@ -393,7 +404,7 @@ def get_quality():
 
 
 @bp.route("/history", methods=["GET"])
-@api_admin_required
+@jwt_admin_required
 def get_history():
     """GET /api/history — riwayat 100 perubahan terakhir (admin only)."""
     try:
@@ -405,7 +416,7 @@ def get_history():
 
 
 @bp.route("/areas", methods=["GET"])
-@api_auth_required
+@jwt_auth_required
 def get_areas():
     """GET /api/areas — daftar kabupaten/kota unik dari data SPKLU dan HCS."""
     try:
@@ -416,7 +427,7 @@ def get_areas():
         if not hcs.empty:
             areas |= set(hcs["wilayah"].tolist())
         areas.discard("Tidak diketahui")
-        return _json_response({"areas": sorted(areas)})
+        return _json_response({"areas": sorted(areas), "data": sorted(areas)})
     except Exception as exc:
         logger.exception("GET /api/areas failed")
         return _err(str(exc), 500)
@@ -427,7 +438,7 @@ def get_areas():
 # ---------------------------------------------------------------------------
 
 @bp.route("/spklu", methods=["POST"])
-@api_admin_required
+@jwt_admin_required
 def create_spklu():
     """POST /api/spklu — tambah SPKLU secara manual."""
     body = request.get_json(silent=True) or {}
@@ -473,7 +484,7 @@ def create_spklu():
 
 
 @bp.route("/spklu/<int:site_id>", methods=["PUT"])
-@api_admin_required
+@jwt_admin_required
 def update_spklu(site_id: int):
     """PUT /api/spklu/<id> — edit SPKLU yang sudah ada."""
     body = request.get_json(silent=True) or {}
@@ -521,7 +532,7 @@ def update_spklu(site_id: int):
 
 
 @bp.route("/spklu/<int:site_id>/status", methods=["PATCH"])
-@api_admin_required
+@jwt_admin_required
 def set_spklu_status(site_id: int):
     """PATCH /api/spklu/<id>/status — aktifkan atau nonaktifkan SPKLU."""
     body = request.get_json(silent=True) or {}
@@ -563,7 +574,7 @@ def set_spklu_status(site_id: int):
 
 
 @bp.route("/hcs/adjust", methods=["POST"])
-@api_admin_required
+@jwt_admin_required
 def adjust_hcs():
     """POST /api/hcs/adjust — koreksi jumlah HCS per wilayah dan merek."""
     body = request.get_json(silent=True) or {}
@@ -601,7 +612,7 @@ def adjust_hcs():
 # ---------------------------------------------------------------------------
 
 @bp.route("/upload/spklu", methods=["POST"])
-@api_admin_required
+@jwt_admin_required
 def upload_spklu():
     """POST /api/upload/spklu — upload file Excel SPKLU (multipart/form-data)."""
     if "file" not in request.files:
@@ -631,7 +642,7 @@ def upload_spklu():
 
 
 @bp.route("/upload/hcs", methods=["POST"])
-@api_admin_required
+@jwt_admin_required
 def upload_hcs():
     """POST /api/upload/hcs — upload file Excel HCS (multipart/form-data).
 
@@ -669,3 +680,223 @@ def upload_hcs():
     except Exception as exc:
         logger.exception("POST /api/upload/hcs failed")
         return _err(str(exc), 500)
+
+
+
+# ---------------------------------------------------------------------------
+# Auth endpoints
+# ---------------------------------------------------------------------------
+
+@bp.route("/auth/login", methods=["POST"])
+def auth_login():
+    """POST /api/auth/login — Login dan dapatkan JWT token."""
+    if not _JWT_AVAILABLE:
+        return jsonify({"error": "PyJWT belum terinstall di server"}), 503
+    body = request.get_json(silent=True) or {}
+    username = str(body.get("username") or "").strip()
+    password = str(body.get("password") or "")
+    if not username or not password:
+        return jsonify({"error": "Username dan password wajib diisi"}), 400
+    try:
+        user = database.authenticate_user(username, password)
+        if user is None:
+            return jsonify({"error": "Username atau password salah"}), 401
+        token = _make_jwt(user)
+        return jsonify({
+            "token": token,
+            "user": {
+                "id": user["id"],
+                "username": user["username"],
+                "role": user["role"],
+                "display_name": user.get("display_name") or user["username"],
+            }
+        })
+    except Exception:
+        logger.exception("Login failed")
+        return jsonify({"error": "Login gagal"}), 500
+
+
+@bp.route("/auth/me", methods=["GET"])
+@jwt_auth_required
+def auth_me():
+    """GET /api/auth/me — Dapatkan info user yang sedang login."""
+    user = _get_jwt_user()
+    return jsonify(user)
+
+
+@bp.route("/auth/change-password", methods=["POST"])
+@jwt_auth_required
+def auth_change_password():
+    """POST /api/auth/change-password — Ganti password sendiri."""
+    current = _get_jwt_user()
+    body = request.get_json(silent=True) or {}
+    old_pass = str(body.get("old_password") or "")
+    new_pass = str(body.get("new_password") or "")
+    if len(new_pass) < 8:
+        return jsonify({"error": "Password baru minimal 8 karakter"}), 400
+    try:
+        user = database.authenticate_user(current["username"], old_pass)
+        if user is None:
+            return jsonify({"error": "Password lama salah"}), 400
+        database.update_user(current["sub"], {"password": new_pass})
+        return jsonify({"message": "Password berhasil diubah"})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        logger.exception("Change password failed")
+        return jsonify({"error": "Gagal mengubah password"}), 500
+
+
+# ---------------------------------------------------------------------------
+# User management endpoints — super_admin only
+# ---------------------------------------------------------------------------
+
+@bp.route("/users", methods=["GET"])
+@jwt_superadmin_required
+def list_users():
+    """GET /api/users — daftar semua user (super_admin only)."""
+    try:
+        all_users = database.get_all_users()
+        # Jangan kirim password_hash
+        safe = [{k: v for k, v in u.items() if k != "password_hash"} for u in all_users]
+        # Format datetime
+        for u in safe:
+            for dt_key in ("created_at", "last_login"):
+                if u.get(dt_key) and hasattr(u[dt_key], "strftime"):
+                    u[dt_key] = u[dt_key].strftime("%d/%m/%Y %H:%M")
+        return jsonify({"data": safe})
+    except Exception:
+        logger.exception("List users failed")
+        return jsonify({"error": "Gagal memuat daftar user"}), 500
+
+
+@bp.route("/users", methods=["POST"])
+@jwt_superadmin_required
+def create_user():
+    """POST /api/users — buat user baru (super_admin only)."""
+    body = request.get_json(silent=True) or {}
+    try:
+        uid = database.create_user(
+            username=str(body.get("username") or "").strip(),
+            password=str(body.get("password") or ""),
+            role=str(body.get("role") or "viewer"),
+            display_name=str(body.get("display_name") or ""),
+        )
+        return jsonify({"id": uid, "message": "User berhasil dibuat"}), 201
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        logger.exception("Create user failed")
+        return jsonify({"error": "Gagal membuat user"}), 500
+
+
+@bp.route("/users/<int:user_id>", methods=["PUT"])
+@jwt_superadmin_required
+def update_user(user_id: int):
+    """PUT /api/users/<id> — update user (super_admin only)."""
+    body = request.get_json(silent=True) or {}
+    try:
+        database.update_user(user_id, body)
+        return jsonify({"message": "User berhasil diperbarui"})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        logger.exception("Update user failed")
+        return jsonify({"error": "Gagal memperbarui user"}), 500
+
+
+@bp.route("/users/<int:user_id>", methods=["DELETE"])
+@jwt_superadmin_required
+def delete_user(user_id: int):
+    """DELETE /api/users/<id> — hapus user (super_admin only)."""
+    current = _get_jwt_user()
+    try:
+        database.delete_user(user_id, current_user_id=current["sub"])
+        return jsonify({"message": "User berhasil dihapus"})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        logger.exception("Delete user failed")
+        return jsonify({"error": "Gagal menghapus user"}), 500
+
+
+# ---------------------------------------------------------------------------
+# Export endpoints
+# ---------------------------------------------------------------------------
+
+@bp.route("/export/spklu", methods=["GET"])
+@jwt_auth_required
+def export_spklu():
+    """GET /api/export/spklu — Export data SPKLU sebagai Excel (.xlsx)."""
+    try:
+        sites, _, _ = database.load_data()
+        if sites.empty:
+            return jsonify({"error": "Tidak ada data SPKLU"}), 404
+
+        export_cols = ["id", "nama", "alamat", "pengelola", "provinsi", "wilayah",
+                       "lat", "lon", "daya", "unit", "connector"]
+        df = sites[export_cols].copy()
+        df.columns = ["ID", "Nama", "Alamat", "Pengelola", "Provinsi",
+                      "Kabupaten/Kota", "Latitude", "Longitude",
+                      "Daya (kW)", "Unit Charger", "Konektor"]
+
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="SPKLU")
+        output.seek(0)
+
+        return Response(
+            output.read(),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=spklu_export.xlsx"}
+        )
+    except Exception:
+        logger.exception("Export SPKLU failed")
+        return jsonify({"error": "Export gagal"}), 500
+
+
+@bp.route("/export/spklu.csv", methods=["GET"])
+@jwt_auth_required
+def export_spklu_csv():
+    """GET /api/export/spklu.csv — Export data SPKLU sebagai CSV."""
+    try:
+        sites, _, _ = database.load_data()
+        if sites.empty:
+            return jsonify({"error": "Tidak ada data SPKLU"}), 404
+        export_cols = ["id", "nama", "alamat", "pengelola", "provinsi", "wilayah",
+                       "lat", "lon", "daya", "unit", "connector"]
+        df = sites[export_cols].copy()
+        csv_data = df.to_csv(index=False)
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=spklu_export.csv"}
+        )
+    except Exception:
+        logger.exception("Export SPKLU CSV failed")
+        return jsonify({"error": "Export gagal"}), 500
+
+
+@bp.route("/export/compare", methods=["GET"])
+@jwt_auth_required
+def export_compare():
+    """GET /api/export/compare — Export data perbandingan HCS vs SPKLU sebagai Excel."""
+    try:
+        sites, hcs, _ = database.load_data()
+        comparison = compare_areas(sites, hcs)
+        if comparison.empty:
+            return jsonify({"error": "Tidak ada data perbandingan"}), 404
+
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            comparison.to_excel(writer, index=False, sheet_name="Perbandingan HCS SPKLU")
+        output.seek(0)
+
+        return Response(
+            output.read(),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=perbandingan_hcs_spklu.xlsx"}
+        )
+    except Exception:
+        logger.exception("Export compare failed")
+        return jsonify({"error": "Export gagal"}), 500
