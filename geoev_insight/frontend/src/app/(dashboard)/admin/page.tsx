@@ -15,8 +15,8 @@ import { Upload, Plus, Trash2, History, FileSpreadsheet, PenSquare, Edit2, Downl
 
 type Tab = 'spklu-add' | 'spklu-edit' | 'hcs-upload' | 'history'
 
-const inputCls = 'border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-full'
-const labelCls = 'block text-xs text-gray-500 font-medium mb-1'
+const inputCls = 'border border-primary-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-300 bg-white/80 w-full text-slate-700 transition-colors'
+const labelCls = 'block text-xs font-semibold text-indigo-700/70 uppercase tracking-wide mb-1'
 
 // ─── Upload panels ────────────────────────────────────────────────────────────
 function UploadSpkluPanel() {
@@ -50,10 +50,10 @@ function UploadSpkluPanel() {
       <p className="text-xs text-gray-500">Kolom ID opsional: isi untuk edit, kosongkan untuk lokasi baru. Upload file yang sama tidak menambah duplikat.</p>
       <div
         {...getRootProps()}
-        className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary-400 bg-primary-50' : 'border-gray-300 hover:border-primary-300 hover:bg-gray-50'} ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary-400 bg-primary-50/60' : 'border-primary-200/40 hover:border-primary-400/60 hover:bg-primary-50/30'} ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         <input {...getInputProps()} />
-        <FileSpreadsheet size={32} className="mx-auto mb-3 text-gray-400" />
+        <FileSpreadsheet size={32} className="mx-auto mb-3 text-primary-400" />
         <div className="font-medium text-gray-700">
           {uploading ? 'Mengunggah…' : isDragActive ? 'Lepaskan file di sini' : 'Pilih atau tarik file SPKLU (.xlsx)'}
         </div>
@@ -108,10 +108,10 @@ function UploadHcsPanel() {
       </div>
       <div
         {...getRootProps()}
-        className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary-400 bg-primary-50' : 'border-gray-300 hover:border-primary-300 hover:bg-gray-50'} ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary-400 bg-primary-50/60' : 'border-primary-200/40 hover:border-primary-400/60 hover:bg-primary-50/30'} ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         <input {...getInputProps()} />
-        <FileSpreadsheet size={32} className="mx-auto mb-3 text-gray-400" />
+        <FileSpreadsheet size={32} className="mx-auto mb-3 text-primary-400" />
         <div className="font-medium text-gray-700">
           {uploading ? 'Mengunggah…' : isDragActive ? 'Lepaskan file di sini' : 'Pilih atau tarik file HCS (.xlsx)'}
         </div>
@@ -353,7 +353,7 @@ function SpkluEditPanel({ areas }: { areas: string[] }) {
       {selectedId && siteDetail && (
         <>
           {/* Status toggle */}
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+          <div className="bg-primary-50/40 border border-primary-100/50 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-gray-700">Toggle status SPKLU</span>
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${siteDetail.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -551,12 +551,13 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-primary-50/60 rounded-xl p-1 w-fit border border-primary-100/40">
         {TABS.map((t) => (
           <button
             key={t.value}
             onClick={() => setTab(t.value)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.value ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === t.value ? 'text-white shadow-brand' : 'text-slate-500 hover:text-primary-600'}`}
+            style={tab === t.value ? { background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' } : {}}
           >
             {t.icon}
             {t.label}
@@ -565,7 +566,7 @@ export default function AdminPage() {
       </div>
 
       {/* Panel content */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="card-glass rounded-2xl p-6">
         {tab === 'spklu-add' && <SpkluAddPanel areas={areas} />}
         {tab === 'spklu-edit' && <SpkluEditPanel areas={areas} />}
         {tab === 'hcs-upload' && (

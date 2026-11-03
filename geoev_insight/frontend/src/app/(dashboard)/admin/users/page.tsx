@@ -24,8 +24,8 @@ const ROLE_COLORS: Record<string, string> = {
   viewer: 'bg-gray-100 text-gray-700',
 }
 
-const inputCls = 'border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-full'
-const labelCls = 'block text-xs text-gray-500 font-medium mb-1'
+const inputCls = 'border border-primary-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-300 bg-white/80 w-full text-slate-700 transition-colors'
+const labelCls = 'block text-xs font-semibold text-indigo-700/70 uppercase tracking-wide mb-1'
 
 export default function UsersPage() {
   const { isSuperAdmin } = useAuth()
@@ -148,8 +148,8 @@ export default function UsersPage() {
 
       {/* Create user form */}
       {showCreate && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-          <h3 className="font-semibold text-gray-800">Buat User Baru</h3>
+        <div className="card-glass rounded-2xl p-6 space-y-4">
+          <h3 className="font-semibold text-indigo-900">Buat User Baru</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Username *</label>
@@ -194,8 +194,8 @@ export default function UsersPage() {
 
       {/* Edit user form */}
       {editUser && (
-        <div className="bg-white rounded-xl border border-primary-200 p-6 space-y-4">
-          <h3 className="font-semibold text-gray-800">Edit User: <span className="text-primary-600">{editUser.username}</span></h3>
+        <div className="card-glass rounded-2xl border border-primary-200 p-6 space-y-4">
+          <h3 className="font-semibold text-indigo-900">Edit User: <span className="text-primary-600">{editUser.username}</span></h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Nama tampilan</label>
@@ -232,8 +232,8 @@ export default function UsersPage() {
 
       {/* Change password form */}
       {changePwUser && (
-        <div className="bg-white rounded-xl border border-amber-200 p-6 space-y-4">
-          <h3 className="font-semibold text-gray-800">Ubah Password: <span className="text-amber-600">{changePwUser.username}</span></h3>
+        <div className="card-glass rounded-2xl border border-amber-200 p-6 space-y-4">
+          <h3 className="font-semibold text-indigo-900">Ubah Password: <span className="text-amber-600">{changePwUser.username}</span></h3>
           <div className="grid grid-cols-1 gap-4 max-w-sm">
             <div>
               <label className={labelCls}>Password baru *</label>
@@ -262,9 +262,9 @@ export default function UsersPage() {
       )}
 
       {/* Users table */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800">Daftar Pengguna ({users.length})</h3>
+      <div className="card-glass rounded-2xl border border-primary-100/50">
+        <div className="px-6 py-4 border-b border-primary-100/40">
+          <h3 className="font-semibold text-indigo-900">Daftar Pengguna ({users.length})</h3>
         </div>
         {isLoading ? (
           <div className="p-8 text-center text-gray-400 text-sm">Memuat data pengguna…</div>

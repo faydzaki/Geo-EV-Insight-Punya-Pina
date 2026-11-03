@@ -12,11 +12,11 @@ import InsightBlock from '@/components/ui/InsightBlock'
 import KpiCard from '@/components/ui/KpiCard'
 import { ChevronDown, ShieldCheck } from 'lucide-react'
 
-const PIE_COLORS = ['#087f83','#6B4EC6','#E9AD2F','#006199','#10b981','#f97316','#e11d48','#8b5cf6']
+const PIE_COLORS = ['#6C63FF','#3B82F6','#8B5CF6','#E9AD2F','#006199','#10b981','#f97316','#e11d48']
 
 function SkeletonKpi() {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-card">
+    <div className="card-glass rounded-2xl p-5">
       <div className="skeleton h-9 w-9 rounded-xl mb-3" />
       <div className="skeleton h-3 w-20 rounded mb-2" />
       <div className="skeleton h-7 w-24 rounded mb-2" />
@@ -75,7 +75,7 @@ export default function HcsPage() {
       <div>
         <div className="inline-flex items-center gap-2 mb-2">
           <span className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full"
-            style={{ background: 'linear-gradient(135deg, #087f83, #0ea5e9)' }}>02</span>
+            style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}>02</span>
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Home Charging</span>
         </div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -88,10 +88,10 @@ export default function HcsPage() {
       </div>
 
       {/* Filter */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-4 flex items-center gap-4">
+      <div className="card-glass rounded-2xl p-4 flex items-center gap-4">
         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">Wilayah Analisis</label>
         <select
-          className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/50 bg-white text-slate-700 transition-colors"
+          className="border border-primary-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-white/80 text-slate-700 transition-colors"
           value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}
         >
           <option value="Semua">Semua kabupaten / kota</option>
@@ -111,7 +111,7 @@ export default function HcsPage() {
       )}
 
       {/* Bar chart */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
+      <div className="card-glass rounded-2xl p-6">
         <InsightBlock headline={headline} />
         {isLoading ? (
           <div className="h-80 skeleton rounded-xl" />
@@ -134,7 +134,7 @@ export default function HcsPage() {
       </div>
 
       {/* Pie chart (collapsible) */}
-      <details className="bg-white rounded-2xl border border-slate-100 shadow-card group">
+      <details className="card-glass rounded-2xl group">
         <summary className="px-6 py-4 cursor-pointer font-semibold text-slate-700 hover:bg-slate-50 rounded-2xl transition-colors select-none flex items-center justify-between">
           <span>Data merek kendaraan catatan HCS</span>
           <ChevronDown size={16} className="text-slate-400 transition-transform group-open:rotate-180" />
@@ -164,11 +164,11 @@ export default function HcsPage() {
       </details>
 
       {/* Privacy note */}
-      <div className="bg-teal-50 border border-teal-200/60 rounded-2xl p-5 flex gap-3">
-        <ShieldCheck size={18} className="text-teal-600 shrink-0 mt-0.5" />
+      <div className="bg-primary-50 border border-primary-200/60 rounded-2xl p-5 flex gap-3">
+        <ShieldCheck size={18} className="text-primary-600 shrink-0 mt-0.5" />
         <div>
-          <div className="font-semibold text-teal-800 text-sm mb-1">Perlindungan Data HCS</div>
-          <p className="text-teal-700 text-sm">
+          <div className="font-semibold text-primary-800 text-sm mb-1">Perlindungan Data HCS</div>
+          <p className="text-primary-700 text-sm">
             Peta menampilkan jumlah catatan HCS per kabupaten/kota tanpa nama, UID, alamat, atau koordinat rumah pelanggan.
           </p>
         </div>

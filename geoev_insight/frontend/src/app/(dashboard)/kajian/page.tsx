@@ -11,7 +11,7 @@ function CandidateCard({ rank, wilayah, hcs, spklu, rasio }: {
 }) {
   const medalColors = ['bg-amber-400', 'bg-slate-400', 'bg-amber-700', 'bg-slate-300', 'bg-slate-300']
   return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-5 flex gap-4 items-start shadow-card hover:shadow-card-hover transition-all duration-200 hover:-translate-y-0.5">
+    <div className="card-glass rounded-2xl p-5 flex gap-4 items-start hover:shadow-brand transition-all duration-200 hover:-translate-y-0.5">
       <div className={`w-9 h-9 rounded-full ${medalColors[rank - 1] ?? 'bg-slate-200'} text-white font-bold text-sm flex items-center justify-center shrink-0`}>
         {rank}
       </div>
@@ -62,7 +62,7 @@ export default function KajianPage() {
       <div>
         <div className="inline-flex items-center gap-2 mb-2">
           <span className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full"
-            style={{ background: 'linear-gradient(135deg, #087f83, #0ea5e9)' }}>04</span>
+            style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}>04</span>
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Kajian</span>
         </div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -74,10 +74,10 @@ export default function KajianPage() {
       </div>
 
       {/* Filter */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-4 flex items-center gap-4">
+      <div className="card-glass rounded-2xl p-4 flex items-center gap-4">
         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">Wilayah Analisis</label>
         <select
-          className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/50 bg-white text-slate-700"
+          className="border border-primary-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-white/80 text-slate-700"
           value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}
         >
           <option value="Semua">Semua kabupaten / kota</option>
@@ -88,13 +88,13 @@ export default function KajianPage() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[0,1,2].map((i) => (
-            <div key={i} className="bg-white rounded-2xl border border-slate-100 p-5 h-28 shadow-card">
+            <div key={i} className="card-glass rounded-2xl p-5 h-28">
               <div className="skeleton h-full w-full rounded-xl" />
             </div>
           ))}
         </div>
       ) : !quality?.ready ? (
-        <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center shadow-card">
+        <div className="card-glass rounded-2xl p-8 text-center">
           <InsightBlock headline="Data SPKLU dan HCS belum lengkap" />
           <p className="text-sm text-slate-400">Unggah data SPKLU Jawa Timur dan catatan HCS untuk membuat daftar wilayah.</p>
         </div>
@@ -112,7 +112,7 @@ export default function KajianPage() {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-card">
+            <div className="card-glass rounded-2xl p-6">
               <InsightBlock headline="Data perbandingan belum tersedia" />
               <p className="text-sm text-slate-500">Periksa penulisan kabupaten/kota pada kedua file.</p>
             </div>
@@ -120,7 +120,7 @@ export default function KajianPage() {
 
           {/* No SPKLU areas */}
           {noSpklu.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-card">
+            <div className="card-glass rounded-2xl p-6">
               <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
                 <MapPin size={15} className="text-amber-500" />
                 Kabupaten/kota dengan data SPKLU yang perlu diperiksa
@@ -147,7 +147,7 @@ export default function KajianPage() {
       )}
 
       {/* Disclaimer */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-3 shadow-card">
+      <div className="card-glass rounded-2xl p-6 space-y-3">
         <h3 className="font-semibold text-slate-800">Sumber dan batasan data</h3>
         <div className="text-sm text-slate-600 space-y-1.5">
           <p>Sumber: data SPKLU dan catatan HCS internal PLN ES.</p>

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { loginApi } from '@/lib/api'
-import { Eye, EyeOff, Zap } from 'lucide-react'
+import { Eye, EyeOff, Zap, User, Lock } from 'lucide-react'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -29,90 +29,124 @@ export default function LoginPage() {
     }
   }
 
-  const inputCls =
-    'w-full rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-400/60 transition border border-white/10 bg-white/7'
-
   return (
     <div
       className="min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #0f1629 0%, #1a2744 55%, #0c2040 100%)' }}
+      style={{
+        background: 'linear-gradient(135deg, #F0EFFE 0%, #EDEEFF 40%, #EEF2FF 70%, #E8E4FF 100%)',
+      }}
     >
-      {/* Decorative glows */}
+      {/* Animated blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-[0.08]"
-          style={{ background: 'radial-gradient(circle, #0ea5e9, transparent 70%)' }} />
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full opacity-[0.08]"
-          style={{ background: 'radial-gradient(circle, #087f83, transparent 70%)' }} />
-        <div className="absolute top-1/3 left-1/3 w-64 h-64 rounded-full opacity-[0.04]"
-          style={{ background: 'radial-gradient(circle, #6B4EC6, transparent 70%)' }} />
+        <div
+          className="blob absolute w-[520px] h-[520px]"
+          style={{
+            background: 'radial-gradient(circle, rgba(108,99,255,0.28) 0%, transparent 70%)',
+            top: '-15%', right: '-8%',
+          }}
+        />
+        <div
+          className="blob absolute w-[420px] h-[420px]"
+          style={{
+            background: 'radial-gradient(circle, rgba(59,130,246,0.22) 0%, transparent 70%)',
+            bottom: '-18%', left: '-10%',
+            animationDelay: '-8s',
+          }}
+        />
+        <div
+          className="blob absolute w-[300px] h-[300px]"
+          style={{
+            background: 'radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)',
+            top: '45%', left: '28%',
+            animationDelay: '-4s',
+          }}
+        />
+        {/* Floating orbs */}
+        <div
+          className="absolute w-16 h-16 rounded-full opacity-60"
+          style={{
+            background: 'rgba(108,99,255,0.15)',
+            border: '1px solid rgba(108,99,255,0.2)',
+            top: '20%', left: '12%',
+            animation: 'float 6s ease-in-out infinite',
+          }}
+        />
+        <div
+          className="absolute w-10 h-10 rounded-full opacity-60"
+          style={{
+            background: 'rgba(59,130,246,0.12)',
+            border: '1px solid rgba(59,130,246,0.2)',
+            bottom: '25%', right: '15%',
+            animation: 'float 8s ease-in-out infinite reverse',
+          }}
+        />
       </div>
-
-      {/* Grid dots pattern */}
-      <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{
-          backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)',
-          backgroundSize: '28px 28px',
-        }}
-      />
 
       {/* Card */}
       <div className="relative w-full max-w-md mx-4 animate-slide-up">
         <div
-          className="rounded-3xl p-8 border border-white/10"
+          className="rounded-3xl p-8 border border-white/70"
           style={{
-            background: 'rgba(255,255,255,0.05)',
+            background: 'rgba(255,255,255,0.82)',
             backdropFilter: 'blur(24px)',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.4)',
+            WebkitBackdropFilter: 'blur(24px)',
+            boxShadow: '0 24px 60px rgba(108,99,255,0.18), 0 4px 16px rgba(108,99,255,0.08)',
           }}
         >
           {/* Logo */}
-          <div className="flex items-center gap-3 mb-8">
+          <div className="flex items-center gap-4 mb-8">
             <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+              className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
               style={{
-                background: 'linear-gradient(135deg, #087f83, #0ea5e9)',
-                boxShadow: '0 0 28px rgba(8,127,131,0.55)',
+                background: 'linear-gradient(135deg, #6C63FF, #3B82F6)',
+                boxShadow: '0 0 28px rgba(108,99,255,0.5)',
               }}
             >
-              <Zap size={22} className="text-white" fill="white" />
+              <Zap size={26} className="text-white" fill="white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white leading-tight">GeoEV Insight</h1>
-              <p className="text-[12px] text-slate-400">SPKLU & Home Charging Jawa Timur–Bali</p>
+              <h1 className="text-xl font-bold text-indigo-900 leading-tight">GeoEV Insight</h1>
+              <p className="text-[12px] text-slate-400 mt-0.5">SPKLU & Home Charging Jawa Timur–Bali</p>
             </div>
+          </div>
+
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-indigo-900">Welcome Back!</h2>
+            <p className="text-sm text-slate-400 mt-1">Masuk untuk mengakses dashboard Anda</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Username */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-indigo-700/70 uppercase tracking-wide mb-1.5">
                 Username
               </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className={inputCls}
-                style={{ background: 'rgba(255,255,255,0.07)' }}
-                placeholder="Masukkan username"
-                required
-                autoComplete="username"
-              />
+              <div className="relative">
+                <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-primary-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full rounded-xl pl-10 pr-4 py-3 text-sm text-indigo-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-400/40 transition border border-primary-100 bg-white/70"
+                  placeholder="Masukkan username"
+                  required
+                  autoComplete="username"
+                />
+              </div>
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide">
+              <label className="block text-xs font-semibold text-indigo-700/70 uppercase tracking-wide mb-1.5">
                 Password
               </label>
               <div className="relative">
+                <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-primary-400 pointer-events-none" />
                 <input
                   type={showPwd ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`${inputCls} pr-11`}
-                  style={{ background: 'rgba(255,255,255,0.07)' }}
+                  className="w-full rounded-xl pl-10 pr-11 py-3 text-sm text-indigo-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-400/40 transition border border-primary-100 bg-white/70"
                   placeholder="Masukkan password"
                   required
                   autoComplete="current-password"
@@ -120,7 +154,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPwd((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-500 transition-colors"
                 >
                   {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -129,7 +163,7 @@ export default function LoginPage() {
 
             {/* Error */}
             {error && (
-              <div className="bg-red-500/12 border border-red-500/30 text-red-400 text-sm rounded-xl px-4 py-3">
+              <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
                 {error}
               </div>
             )}
@@ -140,8 +174,8 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-all duration-200 disabled:opacity-60 mt-2 relative overflow-hidden"
               style={{
-                background: 'linear-gradient(135deg, #087f83, #0ea5e9)',
-                boxShadow: '0 4px 20px rgba(8,127,131,0.45)',
+                background: 'linear-gradient(135deg, #6C63FF, #3B82F6)',
+                boxShadow: '0 4px 20px rgba(108,99,255,0.45)',
               }}
             >
               {loading ? (
@@ -152,14 +186,14 @@ export default function LoginPage() {
                   </svg>
                   Memeriksa akses…
                 </span>
-              ) : 'Masuk ke Dashboard'}
+              ) : 'Masuk ke Dashboard →'}
             </button>
           </form>
 
           <div className="flex items-center gap-3 mt-6">
-            <div className="flex-1 h-px bg-white/8" />
-            <p className="text-[11px] text-slate-600 text-center">Hanya untuk pegawai PLN ES yang berwenang</p>
-            <div className="flex-1 h-px bg-white/8" />
+            <div className="flex-1 h-px bg-primary-100" />
+            <p className="text-[11px] text-slate-400 text-center">Hanya untuk pegawai PLN ES yang berwenang</p>
+            <div className="flex-1 h-px bg-primary-100" />
           </div>
         </div>
       </div>

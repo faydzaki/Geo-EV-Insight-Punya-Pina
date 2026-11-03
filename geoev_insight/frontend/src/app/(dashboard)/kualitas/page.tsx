@@ -8,7 +8,7 @@ import { ShieldAlert } from 'lucide-react'
 
 function SkeletonKpi() {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-card">
+    <div className="card-glass rounded-2xl p-5">
       <div className="skeleton h-9 w-9 rounded-xl mb-3" />
       <div className="skeleton h-3 w-20 rounded mb-2" />
       <div className="skeleton h-7 w-24 rounded mb-2" />
@@ -33,7 +33,7 @@ export default function KualitasPage() {
       <div>
         <div className="inline-flex items-center gap-2 mb-2">
           <span className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full"
-            style={{ background: 'linear-gradient(135deg, #087f83, #0ea5e9)' }}>05</span>
+            style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}>05</span>
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Data Health</span>
         </div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -74,7 +74,7 @@ export default function KualitasPage() {
       )}
 
       {/* Issues table */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
+      <div className="card-glass rounded-2xl p-6">
         <div className="flex items-center gap-2 mb-1">
           <ShieldAlert size={16} className="text-amber-500" />
           <h2 className="text-base font-semibold text-slate-800">Lokasi yang perlu diperiksa</h2>
@@ -100,7 +100,7 @@ export default function KualitasPage() {
       </div>
 
       {/* Explanation */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6 space-y-4 text-sm text-slate-600">
+      <div className="card-glass rounded-2xl p-6 space-y-4 text-sm text-slate-600">
         <h2 className="text-base font-semibold text-slate-800">Cara membaca data HCS</h2>
         <div className="space-y-2">
           <div className="flex gap-3 p-3 bg-slate-50 rounded-xl">

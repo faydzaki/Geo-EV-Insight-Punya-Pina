@@ -14,7 +14,7 @@ interface FilterBarProps {
 }
 
 const selectCls =
-  'border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/50 focus:border-primary-300 bg-white text-slate-700 transition-colors hover:border-slate-300'
+  'border border-primary-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-300 bg-white/80 text-slate-700 transition-colors hover:border-primary-200'
 
 export default function FilterBar({
   prov, owner, area, power, search, areas, onChange, onReset,
@@ -22,12 +22,12 @@ export default function FilterBar({
   const hasFilter = prov !== 'Semua' || owner !== 'Semua' || area !== 'Semua' || power !== 'all' || search !== ''
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-4">
+    <div className="card-glass rounded-2xl p-4">
       <div className="flex flex-wrap gap-2.5 items-end">
 
         {/* Provinsi */}
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-0.5">Provinsi</label>
+          <label className="text-[10px] font-bold text-indigo-700/60 uppercase tracking-wider px-0.5">Provinsi</label>
           <select className={selectCls} value={prov} onChange={(e) => onChange('prov', e.target.value)}>
             <option value="Semua">Semua provinsi</option>
             <option value="Jawa Timur">Jawa Timur</option>
@@ -37,7 +37,7 @@ export default function FilterBar({
 
         {/* Pengelola */}
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-0.5">Pengelola</label>
+          <label className="text-[10px] font-bold text-indigo-700/60 uppercase tracking-wider px-0.5">Pengelola</label>
           <select className={selectCls} value={owner} onChange={(e) => onChange('owner', e.target.value)}>
             <option value="Semua">Semua pengelola</option>
             {OWNERS.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -46,7 +46,7 @@ export default function FilterBar({
 
         {/* Kabupaten / Kota */}
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-0.5">Kabupaten / Kota</label>
+          <label className="text-[10px] font-bold text-indigo-700/60 uppercase tracking-wider px-0.5">Kabupaten / Kota</label>
           <select className={selectCls} value={area} onChange={(e) => onChange('area', e.target.value)}>
             <option value="Semua">Semua wilayah</option>
             {areas.map((a) => <option key={a} value={a}>{a}</option>)}
@@ -55,7 +55,7 @@ export default function FilterBar({
 
         {/* Kelompok daya */}
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-0.5">Kelompok Daya</label>
+          <label className="text-[10px] font-bold text-indigo-700/60 uppercase tracking-wider px-0.5">Kelompok Daya</label>
           <select className={selectCls} value={power} onChange={(e) => onChange('power', e.target.value)}>
             {POWER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -63,9 +63,9 @@ export default function FilterBar({
 
         {/* Search */}
         <div className="flex flex-col gap-1 flex-1 min-w-44">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-0.5">Cari SPKLU</label>
+          <label className="text-[10px] font-bold text-indigo-700/60 uppercase tracking-wider px-0.5">Cari SPKLU</label>
           <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-primary-400 pointer-events-none" />
             <input
               type="search"
               value={search}

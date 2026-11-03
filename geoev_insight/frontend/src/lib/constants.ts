@@ -43,10 +43,10 @@ export const COLORS: Record<string, string> = {
   PLN: '#006199',
   'Non-PLN': '#E9AD2F',
   'Tidak diketahui': '#98A7B9',
-  HCS: '#6B4EC6',
+  HCS: '#8B5CF6',
 }
 
-export const CHART_BLUE = '#087f83'
+export const CHART_BLUE = '#6C63FF'
 
 export const OWNERS = ['PLN', 'Non-PLN', 'Tidak diketahui']
 

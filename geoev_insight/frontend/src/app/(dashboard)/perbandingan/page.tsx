@@ -49,7 +49,7 @@ export default function PerbandinganPage() {
         <div>
           <div className="inline-flex items-center gap-2 mb-2">
             <span className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full"
-              style={{ background: 'linear-gradient(135deg, #087f83, #0ea5e9)' }}>03</span>
+              style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}>03</span>
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Analisis Wilayah</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -66,10 +66,10 @@ export default function PerbandinganPage() {
       </div>
 
       {/* Area filter */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-4 flex items-center gap-4">
+      <div className="card-glass rounded-2xl p-4 flex items-center gap-4">
         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">Wilayah Analisis</label>
         <select
-          className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/50 bg-white text-slate-700"
+          className="border border-primary-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-white/80 text-slate-700"
           value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}
         >
           <option value="Semua">Semua kabupaten / kota</option>
@@ -78,7 +78,7 @@ export default function PerbandinganPage() {
       </div>
 
       {/* Chart */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
+      <div className="card-glass rounded-2xl p-6">
         <InsightBlock headline={headline} />
         {isLoading ? (
           <div className="h-80 skeleton rounded-xl" />
@@ -132,7 +132,7 @@ export default function PerbandinganPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6">
+      <div className="card-glass rounded-2xl p-6">
         <h2 className="text-base font-semibold text-slate-800 mb-1">Jumlah catatan HCS dan SPKLU per kabupaten/kota</h2>
         <p className="text-xs text-slate-500 mb-4">Rasio tidak dihitung pada wilayah tanpa SPKLU terpetakan.</p>
         <DataTable

@@ -40,10 +40,10 @@ export default function DataTable({ columns, data, pageSize = 12, className = ''
 
   return (
     <div className={className}>
-      <div className="overflow-x-auto rounded-xl border border-slate-100">
+      <div className="overflow-x-auto rounded-xl border border-primary-100/50">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
+            <tr className="bg-primary-50/60 border-b border-primary-100/50">
               {columns.map((col) => (
                 <th
                   key={col.key}
