@@ -63,6 +63,8 @@ function SpkluPopup({ site }: { site: Spklu }) {
       ? { bg: '#fef9c3', color: '#713f12' }
       : { bg: '#f3f4f6', color: '#374151' }
 
+  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${site.lat},${site.lon}&travelmode=driving`
+
   return (
     <div style={{ fontFamily: "'Inter','Segoe UI',Arial,sans-serif", maxWidth: 320 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
@@ -80,11 +82,11 @@ function SpkluPopup({ site }: { site: Spklu }) {
       <p style={{ fontSize: 12, color: '#4B5563', marginBottom: 8 }}>
         {site.alamat || 'Alamat belum tersedia'}
       </p>
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#1E1B4B', marginBottom: 8 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: '#1E1B4B', marginBottom: 10 }}>
         &#9889; {fmtNumber(site.daya, 1)} kW &middot; {site.unit} unit &middot; {site.connector} konektor
       </div>
       {site.rincian?.length > 0 && (
-        <table style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse' }}>
+        <table style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
           <thead>
             <tr style={{ background: '#F5F0FF' }}>
               {['Daya', 'Unit', 'Konektor'].map((h) => (
@@ -103,7 +105,36 @@ function SpkluPopup({ site }: { site: Spklu }) {
           </tbody>
         </table>
       )}
-      <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 8 }}>Daya terpasang bukan ketersediaan saat ini.</p>
+
+      {/* Google Maps navigation button */}
+      <a
+        href={mapsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          width: '100%',
+          padding: '7px 12px',
+          borderRadius: 10,
+          background: 'linear-gradient(135deg, #6C63FF 0%, #3B82F6 100%)',
+          color: '#fff',
+          fontWeight: 700,
+          fontSize: 12,
+          textDecoration: 'none',
+          boxShadow: '0 2px 10px rgba(108,99,255,0.35)',
+          marginBottom: 6,
+          boxSizing: 'border-box',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+        </svg>
+        Petunjuk Arah (Google Maps)
+      </a>
+      <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2, textAlign: 'center' }}>Daya terpasang bukan ketersediaan saat ini.</p>
     </div>
   )
 }

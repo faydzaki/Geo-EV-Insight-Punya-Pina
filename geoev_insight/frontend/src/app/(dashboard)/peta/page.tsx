@@ -9,7 +9,7 @@ import FilterBar from '@/components/ui/FilterBar'
 import InsightBlock from '@/components/ui/InsightBlock'
 import DataTable from '@/components/ui/DataTable'
 import type { Spklu } from '@/types'
-import { Download, ChevronDown, MapPin, Zap, Plug, Gauge } from 'lucide-react'
+import { Download, ChevronDown, MapPin, Zap, Plug, Gauge, Navigation } from 'lucide-react'
 
 const SpkluMap = dynamic(() => import('@/components/map/SpkluMap'), { ssr: false })
 
@@ -191,38 +191,81 @@ export default function PetaPage() {
           {/* Detail panel */}
           <aside className="w-72 shrink-0">
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Detail Lokasi</div>
-            {selectedSite ? (
-              <div className="space-y-2 animate-slide-up">
-                <div className="flex items-start gap-2">
-                  <MapPin size={14} className="text-primary-500 mt-0.5 shrink-0" />
+            {selectedSite ? (() => {
+              const ownerColor =
+                selectedSite.pengelola === 'PLN'       ? 'bg-violet-100 text-violet-700 border-violet-200' :
+                selectedSite.pengelola === 'Non-PLN'   ? 'bg-amber-100 text-amber-700 border-amber-200'    :
+                                                         'bg-slate-100 text-slate-500 border-slate-200'
+              const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${selectedSite.lat},${selectedSite.lon}&travelmode=driving`
+              return (
+                <div className="space-y-3 animate-slide-up">
+                  {/* Name + owner badge */}
                   <div>
-                    <div className="font-bold text-slate-800 text-sm leading-tight">{selectedSite.nama}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">
-                      {selectedSite.pengelola} · {selectedSite.wilayah}, {selectedSite.provinsi}
+                    <div className="flex items-start gap-2 mb-1">
+                      <MapPin size={14} className="text-primary-500 mt-0.5 shrink-0" />
+                      <div className="font-bold text-slate-800 text-sm leading-tight flex-1">{selectedSite.nama}</div>
+                    </div>
+                    <div className="flex items-center gap-2 pl-5">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${ownerColor}`}>
+                        {selectedSite.pengelola}
+                      </span>
+                      <span className="text-xs text-slate-400">{selectedSite.wilayah}</span>
                     </div>
                   </div>
-                </div>
-                {selectedSite.alamat && (
-                  <p className="text-xs text-slate-500 leading-relaxed pl-5">{selectedSite.alamat}</p>
-                )}
-                <div className="pl-5">
-                  <div className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-primary-100">
-                    <Zap size={11} className="shrink-0 text-primary-600" />
-                    <span>{fmtNumber(selectedSite.daya, 1)} kW &middot; {selectedSite.unit} unit &middot; {selectedSite.connector} konektor</span>
+
+                  {/* Address */}
+                  {selectedSite.alamat && (
+                    <p className="text-xs text-slate-500 leading-relaxed pl-5 border-l-2 border-primary-100">
+                      {selectedSite.alamat}
+                    </p>
+                  )}
+
+                  {/* Power info badge */}
+                  <div className="pl-5">
+                    <div className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-primary-100">
+                      <Zap size={11} className="shrink-0 text-primary-600" />
+                      <span>{fmtNumber(selectedSite.daya, 1)} kW &middot; {selectedSite.unit} unit &middot; {selectedSite.connector} konektor</span>
+                    </div>
                   </div>
-                </div>
-                {selectedSite.rincian?.length > 0 && (
-                  <div className="space-y-1 pt-1 pl-5">
-                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Rincian charger</div>
-                    {selectedSite.rincian.map((d, i) => (
-                      <div key={i} className="text-xs text-slate-500 bg-slate-50 rounded-lg px-2.5 py-1.5">
-                        {fmtNumber(d.kw, 1)} kW × {d.unit} unit · {d.connector} konektor
-                      </div>
-                    ))}
+
+                  {/* Charger details */}
+                  {selectedSite.rincian?.length > 0 && (
+                    <div className="space-y-1 pl-5">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rincian charger</div>
+                      {selectedSite.rincian.map((d, i) => (
+                        <div key={i} className="text-xs text-slate-500 bg-slate-50 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5">
+                          <Zap size={10} className="text-primary-400 shrink-0" />
+                          {fmtNumber(d.kw, 1)} kW &times; {d.unit} unit &middot; {d.connector} konektor
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Coordinates */}
+                  <div className="pl-5 text-[10px] text-slate-400 font-mono">
+                    {selectedSite.lat.toFixed(5)}, {selectedSite.lon.toFixed(5)}
                   </div>
-                )}
-              </div>
-            ) : (
+
+                  {/* ── Google Maps Navigation Button ── */}
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
+                    style={{
+                      background: 'linear-gradient(135deg, #6C63FF 0%, #3B82F6 100%)',
+                      boxShadow: '0 4px 14px rgba(108,99,255,0.35)',
+                    }}
+                  >
+                    <Navigation size={15} className="shrink-0" />
+                    Petunjuk Arah
+                  </a>
+                  <p className="text-[10px] text-slate-400 text-center -mt-1">
+                    Buka di Google Maps &rarr; navigasi GPS
+                  </p>
+                </div>
+              )
+            })() : (
               <div className="text-center text-slate-400 py-10 px-4">
                 <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
                   <MapPin size={20} className="text-slate-300" />

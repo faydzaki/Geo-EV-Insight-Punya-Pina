@@ -132,13 +132,23 @@ export default function KualitasPage() {
             {
               key: 'masalah',
               label: 'Temuan',
-              className: 'whitespace-nowrap min-w-[240px]',
-              render: (v) => (
-                <span className="inline-flex items-center gap-1.5 text-amber-700 text-xs bg-amber-50 border border-amber-200 px-3 py-1 rounded-full font-medium whitespace-nowrap shadow-xs">
-                  <AlertCircle size={12} className="text-amber-500 shrink-0" />
-                  {v as string}
-                </span>
-              ),
+              className: 'min-w-[220px] max-w-[360px]',
+              render: (v) => {
+                const flags = String(v).split('; ').filter(Boolean)
+                return (
+                  <div className="flex flex-col gap-1.5">
+                    {flags.map((flag, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1.5 text-amber-700 text-xs bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full font-medium leading-tight w-fit"
+                      >
+                        <AlertCircle size={11} className="text-amber-500 shrink-0" />
+                        {flag}
+                      </span>
+                    ))}
+                  </div>
+                )
+              },
             },
           ]}
         />
