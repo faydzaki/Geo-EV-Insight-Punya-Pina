@@ -117,9 +117,9 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={handleRefresh}
-            className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-primary-600 transition-all px-2.5 sm:px-3 py-1.5 rounded-lg border border-primary-100 hover:border-primary-300 hover:bg-primary-50/60"
+            className="group flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-primary-600 transition-all duration-200 px-2.5 sm:px-3 py-1.5 rounded-lg border border-primary-100 hover:border-primary-300 hover:bg-primary-50/60 hover:shadow-[0_2px_8px_rgba(108,99,255,0.10)]"
           >
-            <RefreshCw size={12} className={loading ? 'animate-spin text-primary-500' : ''} />
+            <RefreshCw size={12} className={loading ? 'animate-spin text-primary-500' : 'transition-transform duration-500 group-hover:rotate-180'} />
             <span className="hidden sm:inline">
               {refreshed ? (
                 <span className="text-green-600 font-semibold inline-flex items-center gap-1">
@@ -138,7 +138,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen((o) => !o)}
-              className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 hover:bg-primary-50 transition-colors"
+              className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 hover:bg-primary-50 transition-all duration-200 hover:shadow-[0_2px_8px_rgba(108,99,255,0.08)]"
             >
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"

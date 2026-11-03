@@ -55,12 +55,14 @@ html, body {
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.7);
   box-shadow: 0 4px 24px rgba(108, 99, 255, 0.08), 0 1px 3px rgba(108, 99, 255, 0.04);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.2s ease;
 }
 
 /* Hover variant */
 .card-glass:hover {
   box-shadow: 0 8px 32px rgba(108, 99, 255, 0.14), 0 2px 6px rgba(108, 99, 255, 0.06);
   border-color: rgba(108, 99, 255, 0.2);
+  transform: translateY(-1px);
 }
 
 /* Brand gradient helper */
@@ -89,6 +91,25 @@ html, body {
 .animate-slide-up { animation: slideUp 0.35s ease-out; }
 .animate-float    { animation: float 4s ease-in-out infinite; }
 
+/* ── Sidebar nav item active indicator ─────────────────── */
+/* Animated left accent bar replaces the border-l-2 approach */
+.nav-item-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  height: 60%;
+  width: 3px;
+  background: linear-gradient(180deg, #6C63FF, #3B82F6);
+  border-radius: 0 3px 3px 0;
+  animation: nav-indicator-in 0.2s ease-out;
+}
+
+@keyframes nav-indicator-in {
+  from { opacity: 0; transform: scaleY(0.3); }
+  to   { opacity: 1; transform: scaleY(1); }
+}
+
 /* ── Details/summary reset ─────────────────────────────── */
 details summary { list-style: none; }
 details summary::-webkit-details-marker { display: none; }
@@ -96,6 +117,23 @@ details summary::-webkit-details-marker { display: none; }
 /* ── Recharts ──────────────────────────────────────────── */
 .recharts-tooltip-wrapper { z-index: 50 !important; }
 .recharts-cartesian-axis-tick text { font-size: 11px !important; fill: #6B7280 !important; }
+
+/* Bar hover glow — CSS only, no JS overhead */
+.recharts-bar-rectangle path {
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+.recharts-layer.recharts-bar-rectangle:hover path {
+  filter: brightness(1.10) drop-shadow(0 0 6px rgba(108,99,255,0.30));
+}
+
+/* Pie sector smooth hover */
+.recharts-pie-sector path {
+  transition: transform 0.18s ease, filter 0.18s ease;
+  transform-origin: center;
+}
+.recharts-pie-sector:hover path {
+  filter: brightness(1.10) drop-shadow(0 0 8px rgba(108,99,255,0.28));
+}
 
 /* ── Native select chevron ─────────────────────────────── */
 select {

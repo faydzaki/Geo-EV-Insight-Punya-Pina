@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { MapContainer, TileLayer, CircleMarker, Tooltip, Popup, Circle, useMap } from 'react-leaflet'
 import { COLORS, AREA_CENTERS } from '@/lib/constants'
 import { fmtNumber } from '@/lib/utils'
@@ -36,7 +36,15 @@ const DEFAULT_CENTER: [number, number] = [-7.85, 113.3]
 const DEFAULT_ZOOM = 7
 
 // ─── Map Controller (fly-to + reset) ─────────────────────────────────────────
-function MapController({ flyToArea, resetKey }: { flyToArea?: string; resetKey: number }) {
+function MapController({
+  flyToArea,
+  flyToSite,
+  resetKey,
+}: {
+  flyToArea?: string
+  flyToSite?: [number, number] | null
+  resetKey: number
+}) {
   const map = useMap()
   const isFirstReset = useRef(true)
 
@@ -45,6 +53,11 @@ function MapController({ flyToArea, resetKey }: { flyToArea?: string; resetKey: 
     const center = AREA_CENTERS[flyToArea]
     if (center) map.flyTo(center, 10, { duration: 1.2, easeLinearity: 0.25 })
   }, [flyToArea, map])
+
+  useEffect(() => {
+    if (!flyToSite) return
+    map.flyTo(flyToSite, 14, { duration: 1.2, easeLinearity: 0.25 })
+  }, [flyToSite, map])
 
   useEffect(() => {
     if (isFirstReset.current) { isFirstReset.current = false; return }
@@ -82,8 +95,11 @@ function SpkluPopup({ site }: { site: Spklu }) {
       <p style={{ fontSize: 12, color: '#4B5563', marginBottom: 8 }}>
         {site.alamat || 'Alamat belum tersedia'}
       </p>
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#1E1B4B', marginBottom: 10 }}>
-        &#9889; {fmtNumber(site.daya, 1)} kW &middot; {site.unit} unit &middot; {site.connector} konektor
+      <div style={{ fontSize: 13, fontWeight: 700, color: '#1E1B4B', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#6C63FF" stroke="#6C63FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        <span>{fmtNumber(site.daya, 1)} kW &middot; {site.unit} unit &middot; {site.connector} konektor</span>
       </div>
       {site.rincian?.length > 0 && (
         <table style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
@@ -164,18 +180,22 @@ interface SpkluMapProps {
   hcsData: HcsRecord[]
   layer: 'spklu' | 'hcs' | 'both'
   onSelectSite?: (id: number) => void
+  selectedId?: number | null
   showCoverage?: boolean
   flyToArea?: string
 }
 
 export default function SpkluMap({
-  sites, hcsData, layer, onSelectSite, showCoverage = false, flyToArea,
+  sites, hcsData, layer, onSelectSite, selectedId, showCoverage = false, flyToArea,
 }: SpkluMapProps) {
   const [mounted, setMounted] = useState(false)
   const [basemap, setBasemap] = useState<BasemapKey>('osm')
   const [resetKey, setResetKey] = useState(0)
 
   useEffect(() => setMounted(true), [])
+
+  const selectedSite = selectedId ? sites.find((s) => s.id === selectedId) : null
+  const flyToSite: [number, number] | null = selectedSite ? [selectedSite.lat, selectedSite.lon] : null
 
   if (!mounted) {
     return (
@@ -230,7 +250,7 @@ export default function SpkluMap({
           maxZoom={bm.maxZoom}
         />
 
-        <MapController flyToArea={flyToArea} resetKey={resetKey} />
+        <MapController flyToArea={flyToArea} flyToSite={flyToSite} resetKey={resetKey} />
 
         {/* Coverage circles */}
         {showCoverage && (layer === 'spklu' || layer === 'both') && sites.map((site) => (
@@ -243,22 +263,40 @@ export default function SpkluMap({
         ))}
 
         {/* SPKLU markers */}
-        {(layer === 'spklu' || layer === 'both') && sites.map((site) => (
-          <CircleMarker
-            key={site.id}
-            center={[site.lat, site.lon]}
-            radius={7}
-            pathOptions={{
-              color: '#ffffff', weight: 2,
-              fillColor: COLORS[site.pengelola] ?? COLORS['Tidak diketahui'],
-              fillOpacity: 0.9,
-            }}
-            eventHandlers={{ click: () => onSelectSite?.(site.id) }}
-          >
-            <Tooltip>{site.nama}</Tooltip>
-            <Popup maxWidth={380}><SpkluPopup site={site} /></Popup>
-          </CircleMarker>
-        ))}
+        {(layer === 'spklu' || layer === 'both') && sites.map((site) => {
+          const isSelected = selectedId === site.id
+          return (
+            <React.Fragment key={site.id}>
+              {isSelected && (
+                <CircleMarker
+                  center={[site.lat, site.lon]}
+                  radius={15}
+                  pathOptions={{
+                    color: '#6C63FF',
+                    weight: 2.5,
+                    fillColor: '#6C63FF',
+                    fillOpacity: 0.22,
+                    dashArray: '3,3',
+                  }}
+                />
+              )}
+              <CircleMarker
+                center={[site.lat, site.lon]}
+                radius={isSelected ? 9 : 7}
+                pathOptions={{
+                  color: isSelected ? '#312E81' : '#ffffff',
+                  weight: isSelected ? 3 : 2,
+                  fillColor: COLORS[site.pengelola] ?? COLORS['Tidak diketahui'],
+                  fillOpacity: 0.95,
+                }}
+                eventHandlers={{ click: () => onSelectSite?.(site.id) }}
+              >
+                <Tooltip>{site.nama}</Tooltip>
+                <Popup maxWidth={380}><SpkluPopup site={site} /></Popup>
+              </CircleMarker>
+            </React.Fragment>
+          )
+        })}
 
         {/* HCS area markers */}
         {(layer === 'hcs' || layer === 'both') && Object.entries(hcsByArea).map(([area, info]) => {
@@ -317,9 +355,15 @@ export default function SpkluMap({
           cursor: 'pointer',
           border: '1px solid rgba(108,99,255,0.18)',
           background: 'rgba(255,255,255,0.94)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
         }}
       >
-        &#8635; Pusatkan Peta
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+        </svg>
+        Pusatkan Peta
       </button>
     </div>
   )

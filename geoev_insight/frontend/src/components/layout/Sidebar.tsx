@@ -40,11 +40,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   function navCx(href: string, exact = true) {
     const active = exact ? pathname === href : pathname.startsWith(href)
     return cx(
-      'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium',
-      'transition-all duration-200 group border-l-2',
+      'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium overflow-hidden',
+      'transition-all duration-200 ease-out group',
       active
-        ? 'bg-primary-500/10 text-primary-700 border-primary-500 font-semibold'
-        : 'text-slate-500 hover:bg-primary-50 hover:text-primary-600 border-transparent',
+        ? 'bg-primary-500/12 text-primary-700 font-semibold shadow-[inset_0_0_0_1px_rgba(108,99,255,0.12)] nav-item-active'
+        : 'text-slate-500 hover:text-primary-600 hover:bg-primary-50/80 hover:translate-x-0.5 hover:shadow-[0_2px_8px_rgba(108,99,255,0.08)]',
     )
   }
 
@@ -109,7 +109,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <Icon
                 size={14}
                 className={cx(
-                  'shrink-0 transition-colors',
+                  'shrink-0 transition-all duration-200 group-hover:scale-110',
                   pathname === href ? 'text-primary-500' : 'text-slate-400 group-hover:text-primary-500',
                 )}
               />
@@ -129,8 +129,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 className={cx(
                   navCx('/admin', false),
                   pathname.startsWith('/admin') && pathname !== '/admin/users'
-                    ? 'bg-primary-500/10 text-primary-700 border-primary-500 font-semibold'
-                    : 'text-slate-500 hover:bg-primary-50 hover:text-primary-600 border-transparent',
+                    ? 'bg-primary-500/12 text-primary-700 font-semibold shadow-[inset_0_0_0_1px_rgba(108,99,255,0.12)] nav-item-active'
+                    : 'text-slate-500 hover:text-primary-600 hover:bg-primary-50/80 hover:translate-x-0.5',
                 )}
               >
                 <Settings size={14} className="shrink-0" />
@@ -174,7 +174,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
           <button
             onClick={logout}
-            className="flex items-center gap-2 text-xs text-slate-400 hover:text-red-500 transition-colors w-full px-2 py-1.5 rounded-lg hover:bg-red-50"
+            className="flex items-center gap-2 text-xs text-slate-400 hover:text-red-500 transition-all duration-200 w-full px-2 py-1.5 rounded-lg hover:bg-red-50/80 hover:translate-x-0.5 hover:shadow-[0_2px_6px_rgba(239,68,68,0.10)]"
           >
             <LogOut size={13} />
             <span>Keluar dari sesi</span>

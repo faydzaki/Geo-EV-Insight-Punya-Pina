@@ -9,7 +9,7 @@ import FilterBar from '@/components/ui/FilterBar'
 import InsightBlock from '@/components/ui/InsightBlock'
 import DataTable from '@/components/ui/DataTable'
 import type { Spklu } from '@/types'
-import { Download, ChevronDown, MapPin, Zap, Plug, Gauge, Navigation } from 'lucide-react'
+import { Download, ChevronDown, MapPin, Zap, Plug, Gauge, Navigation, Copy, Check } from 'lucide-react'
 
 const SpkluMap = dynamic(() => import('@/components/map/SpkluMap'), { ssr: false })
 
@@ -37,6 +37,7 @@ export default function PetaPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [showCoverage, setShowCoverage] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const { data: spkluRes, isLoading } = useQuery({
     queryKey: ['spklu', filters],
@@ -80,7 +81,7 @@ export default function PetaPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="inline-flex items-center gap-2 mb-2">
             <span className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full"
@@ -129,7 +130,7 @@ export default function PetaPage() {
       )}
 
       {/* Map section */}
-      <div className="card-glass rounded-2xl p-6">
+      <div id="map-container-section" className="card-glass rounded-2xl p-6">
         <InsightBlock
           headline={
             leadProvince
@@ -158,12 +159,18 @@ export default function PetaPage() {
           </label>
         </div>
 
-        {/* Map + detail */}
-        <div className="flex gap-5">
+        {/* Map + detail (responsive flex-col on tablet/mobile) */}
+        <div className="flex flex-col lg:flex-row gap-5">
           <div className="flex-1 min-w-0">
-            <SpkluMap sites={sites} hcsData={hcs} layer={layer}
-              onSelectSite={setSelectedId} showCoverage={showCoverage}
-              flyToArea={filters.area} />
+            <SpkluMap
+              sites={sites}
+              hcsData={hcs}
+              layer={layer}
+              onSelectSite={setSelectedId}
+              selectedId={selectedId}
+              showCoverage={showCoverage}
+              flyToArea={filters.area}
+            />
 
             {/* Legend */}
             <div className="flex flex-wrap gap-4 mt-3 text-xs text-slate-500">
@@ -189,7 +196,7 @@ export default function PetaPage() {
           </div>
 
           {/* Detail panel */}
-          <aside className="w-72 shrink-0">
+          <aside className="w-full lg:w-80 shrink-0">
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Detail Lokasi</div>
             {selectedSite ? (() => {
               const ownerColor =
@@ -197,8 +204,9 @@ export default function PetaPage() {
                 selectedSite.pengelola === 'Non-PLN'   ? 'bg-amber-100 text-amber-700 border-amber-200'    :
                                                          'bg-slate-100 text-slate-500 border-slate-200'
               const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${selectedSite.lat},${selectedSite.lon}&travelmode=driving`
+              const coordStr = `${selectedSite.lat.toFixed(6)}, ${selectedSite.lon.toFixed(6)}`
               return (
-                <div className="space-y-3 animate-slide-up">
+                <div className="space-y-3 animate-slide-up bg-white/70 rounded-2xl p-4 border border-primary-100/60 shadow-xs">
                   {/* Name + owner badge */}
                   <div>
                     <div className="flex items-start gap-2 mb-1">
@@ -241,9 +249,23 @@ export default function PetaPage() {
                     </div>
                   )}
 
-                  {/* Coordinates */}
-                  <div className="pl-5 text-[10px] text-slate-400 font-mono">
-                    {selectedSite.lat.toFixed(5)}, {selectedSite.lon.toFixed(5)}
+                  {/* Coordinates & Copy button */}
+                  <div className="pl-5 flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                    <div className="text-[10px] text-slate-400 font-mono">
+                      {selectedSite.lat.toFixed(5)}, {selectedSite.lon.toFixed(5)}
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(coordStr)
+                        setCopied(true)
+                        setTimeout(() => setCopied(false), 2000)
+                      }}
+                      className="text-[10px] font-medium text-primary-600 hover:text-primary-800 bg-primary-50 hover:bg-primary-100 px-2 py-0.5 rounded-md transition-colors flex items-center gap-1"
+                      title="Salin koordinat GPS"
+                    >
+                      {copied ? <Check size={10} className="text-green-600" /> : <Copy size={10} />}
+                      {copied ? 'Tersalin!' : 'Salin'}
+                    </button>
                   </div>
 
                   {/* ── Google Maps Navigation Button ── */}
@@ -288,6 +310,7 @@ export default function PetaPage() {
           <div className="h-3" />
           <DataTable
             data={sites.map((s) => ({
+              id: s.id,
               nama: s.nama, wilayah: s.wilayah, provinsi: s.provinsi,
               pengelola: s.pengelola, unit: s.unit, connector: s.connector,
               daya: Math.round(s.daya * 10) / 10,
@@ -295,13 +318,32 @@ export default function PetaPage() {
             searchable
             searchPlaceholder="Cari nama atau wilayah SPKLU…"
             columns={[
-              { key: 'nama',      label: 'Nama' },
+              { key: 'nama',      label: 'Nama', className: 'font-semibold text-slate-800' },
               { key: 'wilayah',   label: 'Kabupaten / kota' },
               { key: 'provinsi',  label: 'Provinsi' },
               { key: 'pengelola', label: 'Pengelola' },
               { key: 'unit',      label: 'Unit charger' },
               { key: 'connector', label: 'Konektor' },
               { key: 'daya',      label: 'Daya (kW)' },
+              {
+                key: 'id',
+                label: '',
+                searchable: false,
+                className: 'text-right w-24',
+                render: (_v, row) => (
+                  <button
+                    onClick={() => {
+                      setSelectedId(row.id as number)
+                      const el = document.getElementById('map-container-section')
+                      if (el) el.scrollIntoView({ behavior: 'smooth' })
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-800 bg-primary-50 hover:bg-primary-100 px-2.5 py-1 rounded-lg transition-colors border border-primary-200"
+                  >
+                    <Navigation size={11} />
+                    Lihat Peta
+                  </button>
+                ),
+              },
             ]}
           />
         </div>

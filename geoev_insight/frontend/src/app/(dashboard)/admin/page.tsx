@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import {
   fetchHistory, fetchAreas, fetchSpklu, fetchSpkluById,
   uploadSpklu, uploadHcs, createSpklu, updateSpklu, setSpkluStatus, downloadExport,
+  adjustHcs,
 } from '@/lib/api'
 import { fmtNumber } from '@/lib/utils'
 import DataTable from '@/components/ui/DataTable'
@@ -68,7 +69,133 @@ function UploadSpkluPanel() {
   )
 }
 
-function UploadHcsPanel() {
+function HcsAdjustCard({ areas }: { areas: string[] }) {
+  const qc = useQueryClient()
+  const [area, setArea] = useState(areas[0] || 'Kota Surabaya')
+  const [brand, setBrand] = useState('')
+  const [amount, setAmount] = useState('1')
+  const [mode, setMode] = useState<'add' | 'set'>('add')
+  const [reason, setReason] = useState('')
+  const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function handleAdjust(e: React.FormEvent) {
+    e.preventDefault()
+    if (!brand.trim()) { setStatus({ ok: false, msg: 'Kategori kendaraan wajib diisi.' }); return }
+    if (!reason.trim()) { setStatus({ ok: false, msg: 'Alasan perubahan wajib diisi untuk audit log.' }); return }
+    const num = parseInt(amount, 10)
+    if (isNaN(num) || num < 0) { setStatus({ ok: false, msg: 'Jumlah harus berupa angka non-negatif.' }); return }
+
+    setLoading(true); setStatus(null)
+    try {
+      const res = await adjustHcs({
+        area,
+        brand: brand.trim().toUpperCase(),
+        amount: num,
+        mode,
+        expected_count: 0,
+        reason: reason.trim(),
+        request_id: `hcs-adj-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      })
+      setStatus({ ok: true, msg: `Berhasil diperbarui. Jumlah sekarang: ${res.total}` })
+      setBrand('')
+      setReason('')
+      qc.invalidateQueries({ queryKey: ['hcs'] })
+      qc.invalidateQueries({ queryKey: ['history'] })
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Gagal memperbarui catatan HCS.'
+      setStatus({ ok: false, msg })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="border border-primary-100 rounded-xl p-4 bg-white/70 space-y-3 mt-4">
+      <div>
+        <h4 className="text-sm font-semibold text-slate-800">Koreksi / Input HCS Manual</h4>
+        <p className="text-xs text-slate-500">
+          Perbarui jumlah HCS tanpa upload ulang file Excel.
+        </p>
+      </div>
+
+      <form onSubmit={handleAdjust} className="space-y-3 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Kabupaten / Kota</label>
+            <select className={inputCls} value={area} onChange={(e) => setArea(e.target.value)}>
+              {areas.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Kategori / Merek Kendaraan</label>
+            <input
+              type="text"
+              placeholder="Contoh: HYUNDAI, WULING"
+              className={inputCls}
+              value={brand}
+              onChange={(e) => setBrand(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Aksi</label>
+            <div className="flex gap-4 pt-1.5">
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="radio" name="adj-mode" checked={mode === 'add'} onChange={() => setMode('add')} className="accent-primary-500" />
+                Tambah (+)
+              </label>
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="radio" name="adj-mode" checked={mode === 'set'} onChange={() => setMode('set')} className="accent-primary-500" />
+                Tetapkan (=)
+              </label>
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Jumlah Catatan</label>
+            <input
+              type="number"
+              min="0"
+              className={inputCls}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className={labelCls}>Alasan Perubahan (Wajib)</label>
+          <input
+            type="text"
+            placeholder="Alasan koreksi data untuk catatan audit..."
+            className={inputCls}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </div>
+
+        {status && (
+          <div className={`rounded-lg p-3 text-xs ${status.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+            {status.msg}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-2 px-3 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-50"
+          style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}
+        >
+          {loading ? 'Menyimpan…' : 'Simpan Perubahan HCS'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
+function UploadHcsPanel({ areas }: { areas: string[] }) {
   const qc = useQueryClient()
   const [mode, setMode] = useState<'replace' | 'add'>('replace')
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null)
@@ -122,6 +249,9 @@ function UploadHcsPanel() {
           {status.msg}
         </div>
       )}
+
+      {/* Manual HCS adjustment */}
+      <HcsAdjustCard areas={areas} />
     </div>
   )
 }
@@ -572,7 +702,7 @@ export default function AdminPage() {
         {tab === 'hcs-upload' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <UploadSpkluPanel />
-            <UploadHcsPanel />
+            <UploadHcsPanel areas={areas} />
           </div>
         )}
         {tab === 'history' && <HistoryPanel />}

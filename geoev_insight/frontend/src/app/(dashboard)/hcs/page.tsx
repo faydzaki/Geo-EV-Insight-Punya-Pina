@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, Legend,
+  PieChart, Pie, Legend, TooltipProps,
 } from 'recharts'
 import { fetchHcs, fetchAreas, downloadExport } from '@/lib/api'
 import { fmtNumber } from '@/lib/utils'
@@ -14,6 +14,32 @@ import DataTable from '@/components/ui/DataTable'
 import { ChevronDown, ShieldCheck, FileSpreadsheet, MapPin, Car, Download } from 'lucide-react'
 
 const PIE_COLORS = ['#6C63FF','#3B82F6','#8B5CF6','#E9AD2F','#006199','#10b981','#f97316','#e11d48']
+
+/* ── Lightweight glass tooltip ─────────────────────────── */
+function ChartTooltip({ active, payload, label, unit = '' }: TooltipProps<number, string> & { unit?: string }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div
+      className="rounded-xl px-3 py-2 text-xs shadow-lg"
+      style={{
+        background: 'rgba(255,255,255,0.95)',
+        border: '1px solid rgba(108,99,255,0.14)',
+        backdropFilter: 'blur(8px)',
+        boxShadow: '0 8px 24px rgba(108,99,255,0.14)',
+      }}
+    >
+      {label && <p className="font-semibold text-indigo-900 mb-1 text-[11px]">{label}</p>}
+      {payload.map((p, i) => (
+        <p key={i} className="text-slate-600">
+          <span className="font-bold" style={{ color: p.color ?? '#6C63FF' }}>
+            {fmtNumber(p.value as number)}
+          </span>{' '}
+          {p.name ?? unit}
+        </p>
+      ))}
+    </div>
+  )
+}
 
 function SkeletonKpi() {
   return (
@@ -132,9 +158,19 @@ export default function HcsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{[0,1,2].map((i) => <SkeletonKpi key={i} />)}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <KpiCard title="Total Catatan HCS"   value={fmtNumber(totalHcs)}       subtitle="Termasuk UID berulang"    icon={<FileSpreadsheet size={18} />} color="teal" />
-          <KpiCard title="Kabupaten / Kota"    value={fmtNumber(byArea.length)}  subtitle="Dengan catatan HCS valid" icon={<MapPin size={18} />}          color="blue" />
-          <KpiCard title="Kategori Kendaraan"  value={fmtNumber(byBrand.length)} subtitle="Kategori unik"            icon={<Car size={18} />}             color="purple" />
+          {[
+            { title: 'Total Catatan HCS',  value: fmtNumber(totalHcs),       subtitle: 'Termasuk UID berulang',    icon: <FileSpreadsheet size={18} />, color: 'teal'   as const },
+            { title: 'Kabupaten / Kota',   value: fmtNumber(byArea.length),  subtitle: 'Dengan catatan HCS valid', icon: <MapPin size={18} />,          color: 'blue'   as const },
+            { title: 'Kategori Kendaraan', value: fmtNumber(byBrand.length), subtitle: 'Kategori unik',            icon: <Car size={18} />,             color: 'purple' as const },
+          ].map((kpi, i) => (
+            <div
+              key={kpi.title}
+              className="animate-slide-up"
+              style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}
+            >
+              <KpiCard {...kpi} />
+            </div>
+          ))}
         </div>
       )}
 
@@ -153,9 +189,16 @@ export default function HcsPage() {
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
               <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => fmtNumber(v)} />
               <YAxis type="category" dataKey="wilayah" tick={{ fontSize: 11 }} width={155} />
-              <Tooltip formatter={(v: number) => [fmtNumber(v), 'Catatan HCS']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-              <Bar dataKey="jumlah" fill={CHART_BLUE} radius={[0, 6, 6, 0]}
-                label={{ position: 'right', fontSize: 11, fill: '#64748b' }} />
+              <Tooltip content={<ChartTooltip unit="Catatan HCS" />} />
+              <Bar
+                dataKey="jumlah"
+                fill={CHART_BLUE}
+                radius={[0, 6, 6, 0]}
+                isAnimationActive
+                animationDuration={700}
+                animationEasing="ease-out"
+                label={{ position: 'right', fontSize: 11, fill: '#64748b' }}
+              />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -177,14 +220,24 @@ export default function HcsPage() {
           {top8.length > 0 && (
             <ResponsiveContainer width="100%" height={340}>
               <PieChart>
-                <Pie data={top8} dataKey="jumlah" nameKey="merk"
-                  cx="50%" cy="50%" outerRadius={120} innerRadius={65}
+                <Pie
+                  data={top8}
+                  dataKey="jumlah"
+                  nameKey="merk"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={120}
+                  innerRadius={65}
+                  isAnimationActive
+                  animationDuration={800}
+                  animationEasing="ease-out"
                   label={({ merk, percent }) => percent > 0.04 ? `${merk} ${(percent * 100).toFixed(0)}%` : ''}
-                  labelLine={false}>
+                  labelLine={false}
+                >
                   {top8.map((_, index) => <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
                 </Pie>
                 <Legend formatter={(value) => <span style={{ fontSize: 12 }}>{value}</span>} />
-                <Tooltip formatter={(v: number) => [fmtNumber(v), 'Catatan HCS']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                <Tooltip content={<ChartTooltip unit="Catatan HCS" />} />
               </PieChart>
             </ResponsiveContainer>
           )}

@@ -125,9 +125,13 @@ export default function DataTable({
           </thead>
           <tbody className="divide-y divide-slate-100/60">
             {paged.map((row, i) => (
-              <tr key={i} className="hover:bg-primary-50/20 transition-colors">
+              <tr
+                key={i}
+                className="hover:bg-primary-50/30 transition-colors duration-150 group/row"
+                style={{ animationDelay: `${i * 20}ms` }}
+              >
                 {columns.map((col) => (
-                  <td key={col.key} className={cx('px-4 py-3 text-slate-700', col.className)}>
+                  <td key={col.key} className={cx('px-4 py-3 text-slate-700 transition-colors duration-150', col.className)}>
                     {col.render
                       ? col.render(row[col.key], row)
                       : row[col.key] != null ? String(row[col.key]) : '—'}

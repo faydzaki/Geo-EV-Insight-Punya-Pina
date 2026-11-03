@@ -2,13 +2,39 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, TooltipProps,
 } from 'recharts'
 import { fetchCompare, fetchAreas, downloadExport } from '@/lib/api'
 import { fmtNumber } from '@/lib/utils'
 import InsightBlock from '@/components/ui/InsightBlock'
 import DataTable from '@/components/ui/DataTable'
 import { AlertTriangle, Info, Download } from 'lucide-react'
+
+/* ── Lightweight glass tooltip ─────────────────────────── */
+function ChartTooltip({ active, payload, label }: TooltipProps<number, string>) {
+  if (!active || !payload?.length) return null
+  return (
+    <div
+      className="rounded-xl px-3 py-2 text-xs"
+      style={{
+        background: 'rgba(255,255,255,0.95)',
+        border: '1px solid rgba(108,99,255,0.14)',
+        backdropFilter: 'blur(8px)',
+        boxShadow: '0 8px 24px rgba(108,99,255,0.14)',
+      }}
+    >
+      {label && <p className="font-semibold text-indigo-900 mb-1 text-[11px]">{label}</p>}
+      {payload.map((p, i) => (
+        <p key={i} className="text-slate-600">
+          <span className="font-bold" style={{ color: '#6C63FF' }}>
+            {fmtNumber(p.value as number, 1)}
+          </span>{' '}
+          Rasio HCS/SPKLU
+        </p>
+      ))}
+    </div>
+  )
+}
 
 export default function PerbandinganPage() {
   const [selectedArea, setSelectedArea] = useState('Semua')
@@ -95,10 +121,15 @@ export default function PerbandinganPage() {
               <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => fmtNumber(v, 0)}
                 label={{ value: 'Catatan HCS per SPKLU', position: 'insideBottom', offset: -5, fontSize: 11 }} />
               <YAxis type="category" dataKey="Wilayah" tick={{ fontSize: 11 }} width={155} />
-              <Tooltip formatter={(v: number) => [fmtNumber(v, 1), 'Rasio HCS/SPKLU']}
-                contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-              <Bar dataKey="Rasio" radius={[0, 6, 6, 0]}
-                label={{ position: 'right', fontSize: 11, fill: '#64748b', formatter: (v: number) => fmtNumber(v, 1) }}>
+              <Tooltip content={<ChartTooltip />} />
+              <Bar
+                dataKey="Rasio"
+                radius={[0, 6, 6, 0]}
+                isAnimationActive
+                animationDuration={700}
+                animationEasing="ease-out"
+                label={{ position: 'right', fontSize: 11, fill: '#64748b', formatter: (v: number) => fmtNumber(v, 1) }}
+              >
                 {measurable.map((_, i) => <Cell key={i} fill="#6B4EC6" />)}
               </Bar>
             </BarChart>

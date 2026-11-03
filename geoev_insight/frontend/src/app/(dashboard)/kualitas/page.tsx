@@ -76,27 +76,37 @@ export default function KualitasPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{[0, 1, 2].map((i) => <SkeletonKpi key={i} />)}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <KpiCard
-            title="Lokasi Perlu Diperiksa"
-            value={fmtNumber(kpis?.issues_count ?? 0)}
-            subtitle="Dari seluruh inventaris"
-            icon={<AlertTriangle size={18} className={kpis?.issues_count ? 'text-white' : 'text-amber-600'} />}
-            highlight={Boolean(kpis?.issues_count)}
-          />
-          <KpiCard
-            title="Wilayah Jatim Belum Dikenali"
-            value={fmtNumber(kpis?.unmapped_jatim ?? 0)}
-            subtitle="Tidak masuk penyebut rasio wilayah"
-            icon={<MapPinOff size={18} />}
-            color="amber"
-          />
-          <KpiCard
-            title="Cakupan HCS"
-            value={fmtNumber(kpis?.hcs_area_count ?? 0)}
-            subtitle="Kabupaten/kota dengan catatan HCS"
-            icon={<CheckCircle2 size={18} />}
-            color="teal"
-          />
+          {[
+            {
+              title: 'Lokasi Perlu Diperiksa',
+              value: fmtNumber(kpis?.issues_count ?? 0),
+              subtitle: 'Dari seluruh inventaris',
+              icon: <AlertTriangle size={18} className={kpis?.issues_count ? 'text-white' : 'text-amber-600'} />,
+              highlight: Boolean(kpis?.issues_count),
+            },
+            {
+              title: 'Wilayah Jatim Belum Dikenali',
+              value: fmtNumber(kpis?.unmapped_jatim ?? 0),
+              subtitle: 'Tidak masuk penyebut rasio wilayah',
+              icon: <MapPinOff size={18} />,
+              color: 'amber' as const,
+            },
+            {
+              title: 'Cakupan HCS',
+              value: fmtNumber(kpis?.hcs_area_count ?? 0),
+              subtitle: 'Kabupaten/kota dengan catatan HCS',
+              icon: <CheckCircle2 size={18} />,
+              color: 'teal' as const,
+            },
+          ].map((kpi, i) => (
+            <div
+              key={kpi.title}
+              className="animate-slide-up"
+              style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}
+            >
+              <KpiCard {...kpi} />
+            </div>
+          ))}
         </div>
       )}
 
@@ -134,15 +144,21 @@ export default function KualitasPage() {
               label: 'Temuan',
               className: 'min-w-[220px] max-w-[360px]',
               render: (v) => {
-                const flags = String(v).split('; ').filter(Boolean)
+                // Support multiple separators: "; ", ", ", "\n", or "|"
+                const raw = String(v ?? '')
+                const flags = raw
+                  .split(/;\s*|\n|\s*\|\s*/)
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+                if (flags.length === 0) return <span className="text-slate-400 text-xs">—</span>
                 return (
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
                     {flags.map((flag, i) => (
                       <span
                         key={i}
-                        className="inline-flex items-center gap-1.5 text-amber-700 text-xs bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full font-medium leading-tight w-fit"
+                        className="inline-flex items-center gap-1 text-amber-700 text-xs bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium leading-tight"
                       >
-                        <AlertCircle size={11} className="text-amber-500 shrink-0" />
+                        <AlertCircle size={10} className="text-amber-500 shrink-0" />
                         {flag}
                       </span>
                     ))}
