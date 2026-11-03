@@ -432,6 +432,11 @@ app = Dash(
 )
 server = app.server
 
+from flask_cors import CORS
+import api as api_module
+server.register_blueprint(api_module.bp)
+CORS(server, origins=["http://localhost:3000", "http://127.0.0.1:3000"])
+
 
 @server.before_request
 def require_basic_auth():
