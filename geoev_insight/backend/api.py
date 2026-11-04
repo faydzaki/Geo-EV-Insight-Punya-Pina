@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import secrets
+import uuid
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
@@ -488,17 +489,15 @@ def create_spklu():
 def update_spklu(site_id: int):
     """PUT /api/spklu/<id> — edit SPKLU yang sudah ada."""
     body = request.get_json(silent=True) or {}
-    required = ("nama", "alamat", "pengelola", "provinsi", "wilayah", "lat", "lon", "details", "reason", "request_id")
+    required = ("nama", "alamat", "pengelola", "provinsi", "wilayah", "lat", "lon", "details", "reason")
     missing = [f for f in required if f not in body]
     if missing:
         return _err("Field wajib tidak ada: " + ", ".join(missing), 400)
 
-    request_id = str(body.get("request_id") or "").strip()
+    request_id = str(body.get("request_id") or uuid.uuid4()).strip()
     reason = str(body.get("reason") or "").strip()
     expected = body.get("expected")  # snapshot token, may be None
 
-    if not request_id:
-        return _err("request_id wajib diisi", 400)
     if not reason:
         return _err("reason wajib diisi", 400)
 
@@ -536,7 +535,7 @@ def update_spklu(site_id: int):
 def set_spklu_status(site_id: int):
     """PATCH /api/spklu/<id>/status — aktifkan atau nonaktifkan SPKLU."""
     body = request.get_json(silent=True) or {}
-    required = ("active", "reason", "request_id", "expected")
+    required = ("active", "reason")
     missing = [f for f in required if f not in body]
     if missing:
         return _err("Field wajib tidak ada: " + ", ".join(missing), 400)
@@ -547,13 +546,11 @@ def set_spklu_status(site_id: int):
         return _err("Field 'active' harus 0 atau 1", 400)
 
     reason = str(body.get("reason") or "").strip()
-    request_id = str(body.get("request_id") or "").strip()
+    request_id = str(body.get("request_id") or uuid.uuid4()).strip()
     expected = body.get("expected")
 
     if not reason:
         return _err("reason wajib diisi", 400)
-    if not request_id:
-        return _err("request_id wajib diisi", 400)
 
     try:
         database.set_site_active(

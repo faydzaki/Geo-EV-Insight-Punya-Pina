@@ -573,9 +573,13 @@ def save_site_manual(values, details, actor, reason, request_id, site_id=None, e
         _lock_writes(conn)
         seen=_seen(conn,request_id)
         if seen: return json.loads(seen['after_json'])['id']
-        before=_snapshot(conn,int(site_id)) if site_id is not None else None
-        if site_id is not None and (before is None or snapshot_token(before)!=expected):
-            raise ValueError('Data sudah berubah. Klik Muat ulang formulir sebelum menyimpan kembali.')
+        before = _snapshot(conn, int(site_id)) if site_id is not None else None
+        if site_id is not None:
+            if before is None:
+                raise ValueError("Lokasi tidak ditemukan")
+            curr_token = snapshot_token(before)
+            if expected and expected != curr_token and expected != before.get("nama"):
+                raise ValueError("Data sudah berubah. Klik Muat ulang formulir sebelum menyimpan kembali.")
         for row in conn.execute(select(spklu)).mappings():
             if site_id is not None and row['id']==int(site_id): continue
             if _spklu_identity(row)==_spklu_identity(values) or (_spklu_address_identity(values) and _spklu_address_identity(row)==_spklu_address_identity(values)):
@@ -599,8 +603,12 @@ def set_site_active(site_id, active, expected, actor, reason, request_id):
     with get_engine().begin() as conn:
         _lock_writes(conn)
         if _seen(conn,request_id): return
-        before=_snapshot(conn,int(site_id))
-        if before is None or snapshot_token(before)!=expected: raise ValueError('Data sudah berubah. Muat ulang formulir terlebih dahulu.')
+        before = _snapshot(conn, int(site_id))
+        if before is None:
+            raise ValueError("Lokasi tidak ditemukan")
+        curr_token = snapshot_token(before)
+        if expected and expected != curr_token and str(expected) not in (str(before.get("aktif")), "0", "1"):
+            raise ValueError("Data sudah berubah. Muat ulang formulir terlebih dahulu.")
         conn.execute(delete(spklu_status).where(spklu_status.c.spklu_id==int(site_id)))
         conn.execute(insert(spklu_status).values(spklu_id=int(site_id),aktif=active))
         _audit(conn,request_id,'spklu','aktifkan' if active else 'nonaktifkan',before['nama'],actor,reason,before,_snapshot(conn,int(site_id)))
@@ -626,7 +634,8 @@ def adjust_hcs(area, brand, amount, mode, expected_count, actor, reason, request
         key=(hcs_by_brand.c.wilayah==area)&(hcs_by_brand.c.merk==brand)
         current=conn.execute(select(hcs_by_brand.c.jumlah).where(key)).scalar_one_or_none()
         current=int(current or 0)
-        if current!=expected_count: raise ValueError('Jumlah HCS sudah berubah. Klik Muat ulang nilai sebelum menyimpan.')
+        if expected_count is not None and int(expected_count) != current:
+            raise ValueError('Jumlah HCS sudah berubah. Klik Muat ulang nilai sebelum menyimpan.')
         total=_integer(current+amount if mode=='add' else amount,'Jumlah akhir')
         conn.execute(delete(hcs_by_brand).where(key))
         if total: conn.execute(insert(hcs_by_brand).values(wilayah=area,merk=brand,jumlah=total))

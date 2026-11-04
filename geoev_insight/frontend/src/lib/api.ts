@@ -149,8 +149,8 @@ export async function updateSpklu(
     lon: number
     details: ChargerDetail[]
     reason: string
-    request_id: string
-    expected: string
+    request_id?: string
+    expected?: string
   }
 ): Promise<{ id: number }> {
   const res = await axios.put(`${BASE}/spklu/${id}`, payload, { headers: headers() })
@@ -159,7 +159,7 @@ export async function updateSpklu(
 
 export async function setSpkluStatus(
   id: number,
-  payload: { active: 0 | 1; reason: string; request_id: string; expected: string }
+  payload: { active: 0 | 1; reason: string; request_id?: string; expected?: string }
 ): Promise<void> {
   await axios.patch(`${BASE}/spklu/${id}/status`, payload, { headers: headers() })
 }

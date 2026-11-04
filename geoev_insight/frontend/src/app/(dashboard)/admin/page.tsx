@@ -406,7 +406,12 @@ function SpkluEditPanel({ areas }: { areas: string[] }) {
 
   const statusMut = useMutation({
     mutationFn: ({ active }: { active: 0 | 1 }) =>
-      setSpkluStatus(selectedId!, { active, reason: statusReason, request_id: crypto.randomUUID(), expected: String(siteDetail?.active ?? 1) }),
+      setSpkluStatus(selectedId!, {
+        active,
+        reason: statusReason,
+        request_id: crypto.randomUUID(),
+        expected: siteDetail?.token || '',
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['spklu'] })
       qc.invalidateQueries({ queryKey: ['spklu-all'] })
@@ -424,8 +429,25 @@ function SpkluEditPanel({ areas }: { areas: string[] }) {
     if (!selectedId || !siteDetail) return
     setResult(null)
     try {
-      const details = vals.chargers.map((c) => ({ kw: parseFloat(c.kw), unit: parseInt(c.unit), connector: parseInt(c.connector), kelompok: '1' }))
-      await updateSpklu(selectedId, { nama: vals.nama, alamat: vals.alamat, pengelola: vals.pengelola, provinsi: vals.provinsi, wilayah: prov === 'Bali' ? 'Tidak diketahui' : vals.wilayah, lat: parseFloat(vals.lat), lon: parseFloat(vals.lon), details, reason: vals.reason, request_id: crypto.randomUUID(), expected: siteDetail.nama })
+      const details = vals.chargers.map((c, idx) => ({
+        kw: parseFloat(c.kw) || 22,
+        unit: parseInt(c.unit, 10) || 1,
+        connector: parseInt(c.connector, 10) || 1,
+        kelompok: String(idx + 1),
+      }))
+      await updateSpklu(selectedId, {
+        nama: vals.nama,
+        alamat: vals.alamat,
+        pengelola: vals.pengelola,
+        provinsi: vals.provinsi,
+        wilayah: prov === 'Bali' ? 'Tidak diketahui' : vals.wilayah,
+        lat: parseFloat(vals.lat),
+        lon: parseFloat(vals.lon),
+        details,
+        reason: vals.reason,
+        request_id: crypto.randomUUID(),
+        expected: siteDetail?.token || '',
+      })
       setResult({ ok: true, msg: `SPKLU #${selectedId} berhasil diperbarui.` })
       qc.invalidateQueries({ queryKey: ['spklu'] })
       qc.invalidateQueries({ queryKey: ['spklu-all'] })
