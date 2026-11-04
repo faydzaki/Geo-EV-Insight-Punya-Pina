@@ -238,25 +238,6 @@ export default function KajianPage() {
           ) : null}
         </div>
       )}
-
-      {/* ══════════════════════════════════════
-          3. DISCLAIMER & NOTES
-      ══════════════════════════════════════ */}
-      <div className="bg-white/75 backdrop-blur-sm border border-white rounded-3xl p-5 space-y-3 shadow-xs">
-        <h4 className="font-bold text-slate-800 text-xs sm:text-sm">Sumber dan batasan data</h4>
-        <div className="text-xs text-slate-500 space-y-1 leading-relaxed">
-          <p>• Sumber: data SPKLU dan catatan HCS internal PLN ES.</p>
-          <p>• Data HCS dan perbandingan HCS/SPKLU mencakup wilayah Jawa Timur.</p>
-          <p>• Setiap baris HCS yang valid dihitung termasuk UID berulang, sehingga jumlahnya bukan pelanggan unik.</p>
-        </div>
-        <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-3.5 flex items-start gap-2.5">
-          <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-800 font-medium leading-relaxed">
-            Rasio tinggi <span className="font-bold">bukan otomatis</span> berarti wilayah tersebut wajib dibangun SPKLU baru.
-            Perlu verifikasi lapangan, kesiapan daya gardu, akses jalan, dan pola mobilitas kendaraan listrik.
-          </p>
-        </div>
-      </div>
     </div>
   )
 }

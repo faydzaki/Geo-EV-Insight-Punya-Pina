@@ -14,7 +14,6 @@ const PAGE_LABELS: Record<string, string> = {
   '/hcs':          'Distribusi HCS',
   '/perbandingan': 'Perbandingan Wilayah',
   '/kajian':       'Kajian Wilayah',
-  '/kualitas':     'Kualitas Data',
   '/admin':        'Manajemen Data',
   '/admin/users':  'Manajemen User',
 }

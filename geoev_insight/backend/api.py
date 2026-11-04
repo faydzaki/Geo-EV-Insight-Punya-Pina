@@ -575,26 +575,29 @@ def set_spklu_status(site_id: int):
 def adjust_hcs():
     """POST /api/hcs/adjust — koreksi jumlah HCS per wilayah dan merek."""
     body = request.get_json(silent=True) or {}
-    required = ("area", "brand", "amount", "mode", "expected_count", "reason", "request_id")
+    required = ("area", "brand", "amount", "mode", "reason")
     missing = [f for f in required if f not in body]
     if missing:
         return _err("Field wajib tidak ada: " + ", ".join(missing), 400)
 
     try:
+        req_id = str(body.get("request_id") or uuid.uuid4())
+        expected_cnt = body.get("expected_count")
         new_total = database.adjust_hcs(
             area=body["area"],
             brand=body["brand"],
             amount=body["amount"],
             mode=body["mode"],
-            expected_count=body["expected_count"],
+            expected_count=expected_cnt,
             actor=_current_actor(),
             reason=str(body.get("reason") or ""),
-            request_id=str(body.get("request_id") or ""),
+            request_id=req_id,
         )
         return _json_response({
             "area": body["area"],
             "brand": body["brand"],
             "new_total": new_total,
+            "total": new_total,
             "message": "Jumlah HCS berhasil diperbarui",
         })
     except ValueError as exc:
@@ -745,13 +748,13 @@ def auth_change_password():
 
 
 # ---------------------------------------------------------------------------
-# User management endpoints — super_admin only
+# User management endpoints — admin or super_admin
 # ---------------------------------------------------------------------------
 
 @bp.route("/users", methods=["GET"])
-@jwt_superadmin_required
+@jwt_admin_required
 def list_users():
-    """GET /api/users — daftar semua user (super_admin only)."""
+    """GET /api/users — daftar semua user (admin & super_admin)."""
     try:
         all_users = database.get_all_users()
         # Jangan kirim password_hash
@@ -768,9 +771,9 @@ def list_users():
 
 
 @bp.route("/users", methods=["POST"])
-@jwt_superadmin_required
+@jwt_admin_required
 def create_user():
-    """POST /api/users — buat user baru (super_admin only)."""
+    """POST /api/users — buat user baru (admin & super_admin)."""
     body = request.get_json(silent=True) or {}
     try:
         uid = database.create_user(
@@ -788,9 +791,9 @@ def create_user():
 
 
 @bp.route("/users/<int:user_id>", methods=["PUT"])
-@jwt_superadmin_required
+@jwt_admin_required
 def update_user(user_id: int):
-    """PUT /api/users/<id> — update user (super_admin only)."""
+    """PUT /api/users/<id> — update user (admin & super_admin)."""
     body = request.get_json(silent=True) or {}
     try:
         database.update_user(user_id, body)
@@ -803,9 +806,9 @@ def update_user(user_id: int):
 
 
 @bp.route("/users/<int:user_id>", methods=["DELETE"])
-@jwt_superadmin_required
+@jwt_admin_required
 def delete_user(user_id: int):
-    """DELETE /api/users/<id> — hapus user (super_admin only)."""
+    """DELETE /api/users/<id> — hapus user (admin & super_admin)."""
     current = _get_jwt_user()
     try:
         database.delete_user(user_id, current_user_id=current["sub"])

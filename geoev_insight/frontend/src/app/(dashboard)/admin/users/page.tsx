@@ -10,6 +10,7 @@ import {
   deleteUser,
   UserRecord,
 } from '@/lib/api'
+import ConfirmModal from '@/components/ui/ConfirmModal'
 import { Plus, Trash2, Edit2, KeyRound, ShieldCheck } from 'lucide-react'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -28,13 +29,14 @@ const inputCls = 'border border-primary-100 rounded-lg px-3 py-2 text-sm focus:o
 const labelCls = 'block text-xs font-semibold text-indigo-700/70 uppercase tracking-wide mb-1'
 
 export default function UsersPage() {
-  const { isSuperAdmin } = useAuth()
+  const { isAdmin } = useAuth()
   const router = useRouter()
   const qc = useQueryClient()
 
   const [showCreate, setShowCreate] = useState(false)
   const [editUser, setEditUser] = useState<UserRecord | null>(null)
   const [changePwUser, setChangePwUser] = useState<UserRecord | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   // Create form
@@ -53,13 +55,13 @@ export default function UsersPage() {
   const [confirmPw, setConfirmPw] = useState('')
 
   useEffect(() => {
-    if (!isSuperAdmin) router.replace('/peta')
-  }, [isSuperAdmin, router])
+    if (!isAdmin) router.replace('/peta')
+  }, [isAdmin, router])
 
   const { data, isLoading } = useQuery({
     queryKey: ['users'],
     queryFn: fetchUsers,
-    enabled: isSuperAdmin,
+    enabled: isAdmin,
   })
 
   const users = data?.data ?? []
@@ -97,10 +99,12 @@ export default function UsersPage() {
     mutationFn: (id: number) => deleteUser(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] })
+      setDeleteTarget(null)
       setMsg({ ok: true, text: 'User berhasil dihapus.' })
     },
     onError: (e: unknown) => {
       const err = (e as { response?: { data?: { error?: string } } })?.response?.data?.error
+      setDeleteTarget(null)
       setMsg({ ok: false, text: err ?? 'Gagal menghapus user.' })
     },
   })
@@ -119,7 +123,7 @@ export default function UsersPage() {
     },
   })
 
-  if (!isSuperAdmin) return null
+  if (!isAdmin) return null
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -325,9 +329,8 @@ export default function UsersPage() {
                         </button>
                         <button
                           onClick={() => {
-                            if (confirm(`Hapus user "${u.username}"? Tindakan ini tidak dapat dibatalkan.`)) {
-                              deleteMut.mutate(u.id)
-                            }
+                            setDeleteTarget(u)
+                            setMsg(null)
                           }}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Hapus"
@@ -352,6 +355,32 @@ export default function UsersPage() {
           <p>Password disimpan menggunakan enkripsi bcrypt. Hapus akun hanya jika benar-benar diperlukan dan pastikan ada akun super_admin lain yang aktif.</p>
         </div>
       </div>
+
+      {/* Custom Delete Confirmation Modal */}
+      <ConfirmModal
+        open={deleteTarget !== null}
+        title="Konfirmasi Hapus Pengguna"
+        message={
+          <div>
+            <p className="text-sm font-semibold text-slate-800">
+              Hapus user &ldquo;{deleteTarget?.username}&rdquo;?
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Tindakan ini tidak dapat dibatalkan. Akun ini tidak akan dapat login lagi ke sistem.
+            </p>
+          </div>
+        }
+        confirmText="Hapus Pengguna"
+        cancelText="Batal"
+        variant="danger"
+        loading={deleteMut.isPending}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteMut.mutate(deleteTarget.id)
+          }
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

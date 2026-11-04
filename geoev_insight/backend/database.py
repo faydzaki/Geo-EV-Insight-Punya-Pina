@@ -634,7 +634,7 @@ def adjust_hcs(area, brand, amount, mode, expected_count, actor, reason, request
         key=(hcs_by_brand.c.wilayah==area)&(hcs_by_brand.c.merk==brand)
         current=conn.execute(select(hcs_by_brand.c.jumlah).where(key)).scalar_one_or_none()
         current=int(current or 0)
-        if expected_count is not None and int(expected_count) != current:
+        if expected_count is not None and expected_count != "" and int(expected_count) != current:
             raise ValueError('Jumlah HCS sudah berubah. Klik Muat ulang nilai sebelum menyimpan.')
         total=_integer(current+amount if mode=='add' else amount,'Jumlah akhir')
         conn.execute(delete(hcs_by_brand).where(key))

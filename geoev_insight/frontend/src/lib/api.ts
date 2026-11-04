@@ -169,10 +169,10 @@ export async function adjustHcs(payload: {
   brand: string
   amount: number
   mode: 'add' | 'set'
-  expected_count: number
+  expected_count?: number
   reason: string
-  request_id: string
-}): Promise<{ total: number }> {
+  request_id?: string
+}): Promise<{ total: number; new_total?: number; message?: string }> {
   const res = await axios.post(`${BASE}/hcs/adjust`, payload, { headers: headers() })
   return res.data
 }

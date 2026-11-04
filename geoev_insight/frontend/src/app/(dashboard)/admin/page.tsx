@@ -6,15 +6,18 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import {
-  fetchHistory, fetchAreas, fetchSpklu, fetchSpkluById,
+  fetchHistory, fetchAreas, fetchSpklu, fetchSpkluById, fetchHcs,
   uploadSpklu, uploadHcs, createSpklu, updateSpklu, setSpkluStatus, downloadExport,
   adjustHcs,
 } from '@/lib/api'
 import { fmtNumber } from '@/lib/utils'
 import DataTable from '@/components/ui/DataTable'
-import { Upload, Plus, Trash2, History, FileSpreadsheet, PenSquare, Edit2, Download } from 'lucide-react'
+import {
+  Upload, Plus, Trash2, History, FileSpreadsheet,
+  PenSquare, Edit2, Download, PlusCircle, SlidersHorizontal,
+} from 'lucide-react'
 
-type Tab = 'spklu-add' | 'spklu-edit' | 'hcs-upload' | 'history'
+type Tab = 'spklu-add' | 'spklu-edit' | 'hcs-add' | 'hcs-edit' | 'upload' | 'history'
 
 const inputCls = 'border border-primary-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 focus:border-primary-300 bg-white/80 w-full text-slate-700 transition-colors'
 const labelCls = 'block text-xs font-semibold text-indigo-700/70 uppercase tracking-wide mb-1'
@@ -69,38 +72,231 @@ function UploadSpkluPanel() {
   )
 }
 
-function HcsAdjustCard({ areas }: { areas: string[] }) {
+function HcsAddPanel({ areas }: { areas: string[] }) {
   const qc = useQueryClient()
   const [area, setArea] = useState(areas[0] || 'Kota Surabaya')
   const [brand, setBrand] = useState('')
   const [amount, setAmount] = useState('1')
-  const [mode, setMode] = useState<'add' | 'set'>('add')
   const [reason, setReason] = useState('')
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null)
   const [loading, setLoading] = useState(false)
 
-  async function handleAdjust(e: React.FormEvent) {
-    e.preventDefault()
-    if (!brand.trim()) { setStatus({ ok: false, msg: 'Kategori kendaraan wajib diisi.' }); return }
-    if (!reason.trim()) { setStatus({ ok: false, msg: 'Alasan perubahan wajib diisi untuk audit log.' }); return }
-    const num = parseInt(amount, 10)
-    if (isNaN(num) || num < 0) { setStatus({ ok: false, msg: 'Jumlah harus berupa angka non-negatif.' }); return }
+  const { data: hcsRes } = useQuery({ queryKey: ['hcs'], queryFn: fetchHcs })
+  const allHcs = hcsRes?.data ?? []
 
-    setLoading(true); setStatus(null)
+  // Check if current area & brand already exists
+  const existingRecord = allHcs.find(
+    (r) => r.wilayah.toLowerCase() === area.toLowerCase() && r.merk.toUpperCase() === brand.trim().toUpperCase()
+  )
+
+  const popularBrands = ['HYUNDAI', 'WULING', 'BYD', 'CHERY', 'MG', 'BMW', 'TESLA', 'TOYOTA', 'KIA']
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const b = brand.trim().toUpperCase()
+    if (!b) {
+      setStatus({ ok: false, msg: 'Merek kendaraan wajib diisi.' })
+      return
+    }
+    const amt = parseInt(amount, 10)
+    if (isNaN(amt) || amt <= 0) {
+      setStatus({ ok: false, msg: 'Jumlah unit harus berupa angka positif (minimal 1).' })
+      return
+    }
+    if (!reason.trim()) {
+      setStatus({ ok: false, msg: 'Alasan penambahan wajib diisi untuk catatan audit.' })
+      return
+    }
+
+    setLoading(true)
+    setStatus(null)
     try {
       const res = await adjustHcs({
         area,
-        brand: brand.trim().toUpperCase(),
-        amount: num,
-        mode,
-        expected_count: 0,
+        brand: b,
+        amount: amt,
+        mode: 'add',
+        expected_count: existingRecord?.jumlah ?? 0,
         reason: reason.trim(),
-        request_id: `hcs-adj-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        request_id: crypto.randomUUID(),
       })
-      setStatus({ ok: true, msg: `Berhasil diperbarui. Jumlah sekarang: ${res.total}` })
+      setStatus({
+        ok: true,
+        msg: `Berhasil menambahkan ${amt} unit untuk ${b} di ${area}. Total sekarang: ${fmtNumber(res.new_total ?? res.total)} unit.`,
+      })
       setBrand('')
+      setAmount('1')
       setReason('')
       qc.invalidateQueries({ queryKey: ['hcs'] })
+      qc.invalidateQueries({ queryKey: ['compare'] })
+      qc.invalidateQueries({ queryKey: ['history'] })
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Gagal menambahkan catatan HCS.'
+      setStatus({ ok: false, msg })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h3 className="font-semibold text-gray-800 text-lg">Input Catatan Home Charging Services (HCS)</h3>
+        <p className="text-xs text-gray-500 mt-1">
+          Tambahkan unit pemasangan Home Charging Services baru ke kabupaten/kota dan merek kendaraan di Jawa Timur.
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className={labelCls}>Kabupaten / Kota</label>
+          <select className={inputCls} value={area} onChange={(e) => setArea(e.target.value)}>
+            {areas.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className={labelCls}>Merek / Model Kendaraan Listrik</label>
+          <input
+            type="text"
+            placeholder="Contoh: HYUNDAI, WULING, BYD..."
+            className={inputCls}
+            value={brand}
+            onChange={(e) => setBrand(e.target.value)}
+          />
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {popularBrands.map((pb) => (
+              <button
+                key={pb}
+                type="button"
+                onClick={() => setBrand(pb)}
+                className="text-[11px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/60 font-medium transition-colors"
+              >
+                +{pb}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Existing count helper notification */}
+        {brand.trim() && (
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600">
+            {existingRecord ? (
+              <span>
+                Catatan tersimpan saat ini: <strong className="text-blue-700">{fmtNumber(existingRecord.jumlah)} unit</strong> untuk {existingRecord.merk} di {area}. Setelah penambahan akan menjadi <strong className="text-emerald-700">{fmtNumber(existingRecord.jumlah + (parseInt(amount, 10) || 0))} unit</strong>.
+              </span>
+            ) : (
+              <span>
+                Belum ada data untuk {brand.trim().toUpperCase()} di {area}. Entri baru akan dibuat dengan total awal <strong className="text-emerald-700">{fmtNumber(parseInt(amount, 10) || 0)} unit</strong>.
+              </span>
+            )}
+          </div>
+        )}
+
+        <div>
+          <label className={labelCls}>Jumlah Catatan Tambahan (Unit)</label>
+          <input
+            type="number"
+            min="1"
+            className={inputCls}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className={labelCls}>Alasan Penambahan / Sumber Data *</label>
+          <textarea
+            rows={2}
+            placeholder="Contoh: Pemasangan baru pelanggan PLN UID Jawa Timur batch survei..."
+            className={inputCls}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </div>
+
+        {status && (
+          <div className={`rounded-xl p-4 text-sm ${status.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+            {status.msg}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white transition-all shadow-sm hover:shadow disabled:opacity-50"
+          style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)' }}
+        >
+          {loading ? 'Menyimpan Catatan…' : 'Simpan Catatan HCS'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
+function HcsEditPanel({ areas }: { areas: string[] }) {
+  const qc = useQueryClient()
+  const { data: hcsRes, isLoading: loadingHcs } = useQuery({ queryKey: ['hcs'], queryFn: fetchHcs })
+  const records = hcsRes?.data ?? []
+
+  const [selectedRecord, setSelectedRecord] = useState<{ wilayah: string; merk: string; jumlah: number } | null>(null)
+  const [searchQ, setSearchQ] = useState('')
+  const [newCount, setNewCount] = useState('')
+  const [reason, setReason] = useState('')
+  const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  // suppress unused warning if areas not directly used
+  void areas
+
+  const filteredRecords = records.filter(
+    (r) =>
+      r.wilayah.toLowerCase().includes(searchQ.toLowerCase()) ||
+      r.merk.toLowerCase().includes(searchQ.toLowerCase())
+  )
+
+  function handleSelect(r: { wilayah: string; merk: string; jumlah: number }) {
+    setSelectedRecord(r)
+    setNewCount(String(r.jumlah))
+    setReason('')
+    setStatus(null)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selectedRecord) return
+    const count = parseInt(newCount, 10)
+    if (isNaN(count) || count < 0) {
+      setStatus({ ok: false, msg: 'Jumlah unit harus berupa angka non-negatif (>= 0).' })
+      return
+    }
+    if (!reason.trim()) {
+      setStatus({ ok: false, msg: 'Alasan koreksi data wajib diisi untuk catatan audit.' })
+      return
+    }
+
+    setLoading(true)
+    setStatus(null)
+    try {
+      const res = await adjustHcs({
+        area: selectedRecord.wilayah,
+        brand: selectedRecord.merk,
+        amount: count,
+        mode: 'set',
+        expected_count: selectedRecord.jumlah,
+        reason: reason.trim(),
+        request_id: crypto.randomUUID(),
+      })
+      const updatedTotal = res.new_total ?? res.total
+      setStatus({
+        ok: true,
+        msg: `Berhasil memperbarui data HCS ${selectedRecord.merk} (${selectedRecord.wilayah}) menjadi ${fmtNumber(updatedTotal)} unit.`,
+      })
+      setSelectedRecord({ ...selectedRecord, jumlah: updatedTotal })
+      qc.invalidateQueries({ queryKey: ['hcs'] })
+      qc.invalidateQueries({ queryKey: ['compare'] })
       qc.invalidateQueries({ queryKey: ['history'] })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Gagal memperbarui catatan HCS.'
@@ -111,91 +307,167 @@ function HcsAdjustCard({ areas }: { areas: string[] }) {
   }
 
   return (
-    <div className="border border-primary-100 rounded-xl p-4 bg-white/70 space-y-3 mt-4">
+    <div className="space-y-6">
       <div>
-        <h4 className="text-sm font-semibold text-slate-800">Koreksi / Input HCS Manual</h4>
-        <p className="text-xs text-slate-500">
-          Perbarui jumlah HCS tanpa upload ulang file Excel.
+        <h3 className="font-semibold text-gray-800 text-lg">Edit &amp; Koreksi Catatan HCS</h3>
+        <p className="text-xs text-gray-500 mt-1">
+          Pilih data HCS yang tersimpan di bawah ini untuk mengoreksi atau mengubah total unit terpasang.
         </p>
       </div>
 
-      <form onSubmit={handleAdjust} className="space-y-3 text-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>Kabupaten / Kota</label>
-            <select className={inputCls} value={area} onChange={(e) => setArea(e.target.value)}>
-              {areas.map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelCls}>Kategori / Merek Kendaraan</label>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left: Edit Form */}
+        <div className="lg:col-span-5 space-y-4">
+          {selectedRecord ? (
+            <form onSubmit={handleSubmit} className="border border-blue-200/80 bg-blue-50/40 rounded-2xl p-5 space-y-4 shadow-xs">
+              <div className="flex items-center justify-between pb-3 border-b border-blue-100">
+                <div>
+                  <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Item Dipilih</span>
+                  <h4 className="font-bold text-slate-800 text-base">{selectedRecord.wilayah}</h4>
+                  <p className="text-xs text-slate-500 font-medium">Merek: {selectedRecord.merk}</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block">Jumlah Saat Ini</span>
+                  <span className="text-lg font-bold text-slate-800">{fmtNumber(selectedRecord.jumlah)}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>Jumlah Baru (Unit Total)</label>
+                <input
+                  type="number"
+                  min="0"
+                  className={inputCls}
+                  value={newCount}
+                  onChange={(e) => setNewCount(e.target.value)}
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Isi 0 jika ingin menghapus/menolkan catatan untuk kategori ini.
+                </p>
+              </div>
+
+              <div>
+                <label className={labelCls}>Alasan Koreksi / Sumber Perubahan *</label>
+                <textarea
+                  rows={2}
+                  placeholder="Contoh: Koreksi duplikasi data internal PLN ES..."
+                  className={inputCls}
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </div>
+
+              {status && (
+                <div className={`rounded-xl p-3.5 text-xs ${status.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+                  {status.msg}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedRecord(null)}
+                  className="px-4 py-2 border border-slate-200 bg-white rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-2 px-4 rounded-xl text-xs font-semibold text-white transition-all shadow-sm disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)' }}
+                >
+                  {loading ? 'Menyimpan Koreksi…' : 'Simpan Koreksi'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center bg-slate-50/50">
+              <SlidersHorizontal size={28} className="mx-auto text-slate-400 mb-2" />
+              <p className="text-sm font-medium text-slate-600">Belum ada item yang dipilih</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Pilih salah satu baris data HCS pada tabel di samping untuk mengubah atau mengoreksi jumlah unitnya.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Table of HCS Records */}
+        <div className="lg:col-span-7 space-y-3">
+          <div className="flex items-center gap-2">
             <input
               type="text"
-              placeholder="Contoh: HYUNDAI, WULING"
-              className={inputCls}
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
+              placeholder="Cari wilayah atau merek HCS..."
+              value={searchQ}
+              onChange={(e) => setSearchQ(e.target.value)}
+              className="w-full rounded-xl px-3 py-2 text-xs border border-slate-200 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
             />
+            {searchQ && (
+              <button
+                onClick={() => setSearchQ('')}
+                className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1"
+              >
+                Reset
+              </button>
+            )}
           </div>
+
+          <div className="border border-slate-200/80 rounded-2xl overflow-hidden bg-white shadow-xs max-h-[460px] overflow-y-auto">
+            {loadingHcs ? (
+              <div className="p-8 text-center text-xs text-slate-400">Memuat data HCS…</div>
+            ) : filteredRecords.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-400">Tidak ada catatan HCS yang sesuai.</div>
+            ) : (
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 font-semibold sticky top-0">
+                  <tr>
+                    <th className="py-2.5 px-3">Wilayah</th>
+                    <th className="py-2.5 px-3">Merek Kendaraan</th>
+                    <th className="py-2.5 px-3 text-right">Jumlah (Unit)</th>
+                    <th className="py-2.5 px-3 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredRecords.map((r, idx) => {
+                    const isSelected = selectedRecord?.wilayah === r.wilayah && selectedRecord?.merk === r.merk
+                    return (
+                      <tr
+                        key={`${r.wilayah}-${r.merk}-${idx}`}
+                        className={`transition-colors ${isSelected ? 'bg-blue-50/80 font-medium' : 'hover:bg-slate-50/60'}`}
+                      >
+                        <td className="py-2 px-3 text-slate-800">{r.wilayah}</td>
+                        <td className="py-2 px-3 text-slate-600">{r.merk}</td>
+                        <td className="py-2 px-3 text-right font-semibold text-slate-800">{fmtNumber(r.jumlah)}</td>
+                        <td className="py-2 px-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleSelect(r)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
+                              isSelected
+                                ? 'bg-blue-600 text-white shadow-xs'
+                                : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/60'
+                            }`}
+                          >
+                            {isSelected ? 'Dipilih' : 'Edit'}
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-400 text-right">
+            Menampilkan {filteredRecords.length} dari {records.length} total catatan HCS
+          </p>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>Aksi</label>
-            <div className="flex gap-4 pt-1.5">
-              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input type="radio" name="adj-mode" checked={mode === 'add'} onChange={() => setMode('add')} className="accent-primary-500" />
-                Tambah (+)
-              </label>
-              <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input type="radio" name="adj-mode" checked={mode === 'set'} onChange={() => setMode('set')} className="accent-primary-500" />
-                Tetapkan (=)
-              </label>
-            </div>
-          </div>
-          <div>
-            <label className={labelCls}>Jumlah Catatan</label>
-            <input
-              type="number"
-              min="0"
-              className={inputCls}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className={labelCls}>Alasan Perubahan (Wajib)</label>
-          <input
-            type="text"
-            placeholder="Alasan koreksi data untuk catatan audit..."
-            className={inputCls}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        </div>
-
-        {status && (
-          <div className={`rounded-lg p-3 text-xs ${status.ok ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-700'}`}>
-            {status.msg}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-2 px-3 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}
-        >
-          {loading ? 'Menyimpan…' : 'Simpan Perubahan HCS'}
-        </button>
-      </form>
+      </div>
     </div>
   )
 }
 
-function UploadHcsPanel({ areas }: { areas: string[] }) {
+function UploadHcsPanel() {
   const qc = useQueryClient()
   const [mode, setMode] = useState<'replace' | 'add'>('replace')
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null)
@@ -209,6 +481,7 @@ function UploadHcsPanel({ areas }: { areas: string[] }) {
       const res = await uploadHcs(file, mode)
       setStatus({ ok: true, msg: res.message })
       qc.invalidateQueries({ queryKey: ['hcs'] })
+      qc.invalidateQueries({ queryKey: ['compare'] })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Gagal mengunggah file.'
       setStatus({ ok: false, msg })
@@ -249,9 +522,6 @@ function UploadHcsPanel({ areas }: { areas: string[] }) {
           {status.msg}
         </div>
       )}
-
-      {/* Manual HCS adjustment */}
-      <HcsAdjustCard areas={areas} />
     </div>
   )
 }
@@ -647,15 +917,23 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!isAdmin) router.replace('/peta')
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search).get('tab') as Tab | null
+      if (p && ['spklu-add', 'spklu-edit', 'hcs-add', 'hcs-edit', 'upload', 'history'].includes(p)) {
+        setTab(p)
+      }
+    }
   }, [isAdmin, router])
 
   if (!isAdmin) return null
 
   const TABS: { value: Tab; label: string; icon: React.ReactNode }[] = [
-    { value: 'spklu-add', label: 'Input SPKLU', icon: <PenSquare size={15} /> },
-    { value: 'spklu-edit', label: 'Edit SPKLU', icon: <Edit2 size={15} /> },
-    { value: 'hcs-upload', label: 'Upload Excel', icon: <Upload size={15} /> },
-    { value: 'history', label: 'Riwayat', icon: <History size={15} /> },
+    { value: 'spklu-add',  label: 'Input SPKLU',  icon: <PenSquare size={15} /> },
+    { value: 'spklu-edit', label: 'Edit SPKLU',   icon: <Edit2 size={15} /> },
+    { value: 'hcs-add',    label: 'Input HCS',    icon: <PlusCircle size={15} /> },
+    { value: 'hcs-edit',   label: 'Edit HCS',     icon: <SlidersHorizontal size={15} /> },
+    { value: 'upload',     label: 'Upload Excel', icon: <Upload size={15} /> },
+    { value: 'history',    label: 'Riwayat',      icon: <History size={15} /> },
   ]
 
   async function handleExport(type: 'xlsx' | 'csv') {
@@ -675,8 +953,8 @@ export default function AdminPage() {
         <div className="flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-primary-500 uppercase tracking-widest">DATA WORKSPACE</span>
-            <h1 className="text-2xl font-bold text-gray-900 mt-1">Manajemen Data SPKLU</h1>
-            <p className="text-gray-500 text-sm mt-1">Input, edit, dan kelola data SPKLU dan HCS.</p>
+            <h1 className="text-2xl font-bold text-gray-900 mt-1">Manajemen Data</h1>
+            <p className="text-gray-500 text-sm mt-1">Input, edit, dan kelola inventaris data SPKLU dan catatan Home Charging Services (HCS).</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -703,13 +981,13 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-primary-50/60 rounded-xl p-1 w-fit border border-primary-100/40">
+      <div className="flex flex-wrap gap-1.5 bg-primary-50/60 rounded-xl p-1.5 w-fit border border-primary-100/40">
         {TABS.map((t) => (
           <button
             key={t.value}
             onClick={() => setTab(t.value)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === t.value ? 'text-white shadow-brand' : 'text-slate-500 hover:text-primary-600'}`}
-            style={tab === t.value ? { background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' } : {}}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all ${tab === t.value ? 'text-white shadow-brand font-semibold' : 'text-slate-500 hover:text-primary-600 hover:bg-white/40'}`}
+            style={tab === t.value ? { background: 'linear-gradient(135deg, #2563EB, #1D4ED8)' } : {}}
           >
             {t.icon}
             {t.label}
@@ -721,10 +999,12 @@ export default function AdminPage() {
       <div className="card-glass rounded-2xl p-6">
         {tab === 'spklu-add' && <SpkluAddPanel areas={areas} />}
         {tab === 'spklu-edit' && <SpkluEditPanel areas={areas} />}
-        {tab === 'hcs-upload' && (
+        {tab === 'hcs-add' && <HcsAddPanel areas={areas} />}
+        {tab === 'hcs-edit' && <HcsEditPanel areas={areas} />}
+        {tab === 'upload' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <UploadSpkluPanel />
-            <UploadHcsPanel areas={areas} />
+            <UploadHcsPanel />
           </div>
         )}
         {tab === 'history' && <HistoryPanel />}

@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   Map, BarChart2, GitCompare, Lightbulb,
-  CheckSquare, Settings, Users, X,
+  Settings, Users, X,
 } from 'lucide-react'
 import PlnIcon from '@/components/ui/PlnIcon'
 import { cx } from '@/lib/utils'
@@ -14,7 +14,6 @@ const NAV_ITEMS = [
   { href: '/hcs',          label: 'Distribusi HCS',       icon: BarChart2 },
   { href: '/perbandingan', label: 'Perbandingan Wilayah', icon: GitCompare },
   { href: '/kajian',       label: 'Kajian Wilayah',       icon: Lightbulb },
-  { href: '/kualitas',     label: 'Kualitas Data',        icon: CheckSquare },
 ]
 
 const ROLE_LABELS: Record<string, string> = {
@@ -166,7 +165,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     )
                   })()}
                 </li>
-                {isSuperAdmin && (
+                {isAdmin && (
                   <li>
                     {(() => {
                       const active = isNavActive('/admin/users')

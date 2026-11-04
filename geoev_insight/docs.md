@@ -43,8 +43,7 @@ GeoEV Insight adalah **web dashboard internal** yang bertujuan memberikan gambar
 | **Distribusi HCS**       | Jumlah catatan HCS per kabupaten/kota dan per merek kendaraan                             |
 | **Perbandingan Wilayah** | Tabel dan grafik rasio HCS/SPKLU per kabupaten/kota                                       |
 | **Kajian Wilayah**       | Daftar wilayah prioritas kajian berdasarkan rasio tertinggi                               |
-| **Kualitas Data**        | Lokasi SPKLU dengan data bermasalah (koordinat salah, wilayah belum dikenali, dll.)       |
-| **Manajemen Data**       | Upload Excel SPKLU/HCS dan input manual — hanya untuk Admin                               |
+| **Manajemen Data**       | Upload Excel SPKLU/HCS, input & edit SPKLU, input & edit HCS — hanya untuk Admin          |
 
 ---
 
@@ -344,25 +343,18 @@ Halaman utama yang menampilkan:
 
 - Daftar hingga **5 kabupaten/kota** dengan rasio HCS/SPKLU tertinggi sebagai kandidat kajian
 - Daftar kabupaten/kota yang memiliki catatan HCS namun **belum ada SPKLU terpetakan**
-- Catatan sumber data dan **disclaimer** bahwa ini bukan keputusan pembangunan
 
-> **PERINGATAN:** Rasio tinggi **bukan otomatis** berarti wilayah tersebut membutuhkan SPKLU baru.
-> Perlu verifikasi lapangan, kajian penggunaan, akses lokasi, dan kondisi jaringan listrik.
+### 7.5 Halaman Manajemen Data (Admin Only)
 
-### 7.5 Halaman Kualitas Data
+Manajemen data terintegrasi yang mencakup:
+- **Input SPKLU**: Formulir penambahan titik SPKLU baru lengkap beserta rincian dispenser charger
+- **Edit SPKLU**: Pencarian dan modifikasi data SPKLU, rincian konektor, serta aktivasi/deaktivasi status
+- **Input HCS**: Formulir penambahan unit catatan HCS baru berdasarkan kabupaten/kota dan merek kendaraan
+- **Edit HCS**: Modifikasi atau penyesuaian (koreksi) total catatan unit HCS terpasang
+- **Upload Excel**: Unggah berkas Excel data SPKLU dan catatan agregat HCS
+- **Riwayat Perubahan**: Catatan audit log 100 perubahan data terakhir
 
-Pemeriksaan seluruh inventaris SPKLU (tidak terpengaruh filter peta):
-
-- **KPI kualitas**: jumlah lokasi bermasalah, SPKLU Jatim tanpa wilayah, kabupaten/kota dengan data HCS
-- **Tabel lokasi bermasalah** dengan kolom temuan:
-  - Kabupaten/kota belum dikenali (untuk SPKLU Jawa Timur)
-  - Rincian charger kosong (unit = 0)
-  - Pengelola belum dikenali
-  - Koordinat di luar cakupan Jawa Timur-Bali
-
-### 7.6 Halaman Manajemen Data (Admin Only)
-
-Lihat Bagian 12 untuk penjelasan lengkap.
+Lihat Bagian 12 untuk penjelasan teknis lengkap.
 
 ---
 
@@ -562,29 +554,34 @@ File Excel (.xlsx)
 
 ## 12. Manajemen Data oleh Admin
 
-### Dua Cara Input Data
+### Struktur Tab Manajemen Data
 
-**1. Input langsung (formulir web)**
+**1. Input SPKLU (`spklu-add`)**
+- Tambah lokasi SPKLU baru lengkap dengan nama, pengelola, provinsi, kabupaten/kota, alamat, koordinat lat/lon, dan rincian dispenser charger (daya kW, unit, konektor).
+- Wajib menyertakan alasan perubahan untuk pencatatan jejak audit.
 
-Untuk SPKLU:
+**2. Edit SPKLU (`spklu-edit`)**
+- Pencarian cerdas lokasi SPKLU berdasarkan nama atau ID.
+- Pembaruan informasi nama, alamat, wilayah, koordinat, dan konfigurasi charger.
+- Toggle status lokasi (Aktif / Nonaktif) dengan alasan perubahan.
+- Dilengkapi perlindungan *optimistic concurrency* berbasis token snapshot.
 
-- Pilih mode: tambah lokasi baru atau edit lokasi yang sudah ada
-- Isi formulir: nama, pengelola, provinsi, kabupaten/kota, alamat, latitude, longitude
-- Klik peta untuk mengisi koordinat secara visual
-- Tambah/edit rincian charger (daya per unit, jumlah unit, jumlah konektor)
-- Isi alasan perubahan (wajib)
-- Simpan -> tersimpan ke MySQL + dicatat di `change_log`
+**3. Input HCS (`hcs-add`)**
+- Penambahan unit catatan pemasangan Home Charging Services (HCS) baru.
+- Pilihan kabupaten/kota (Jawa Timur) dan merek kendaraan (dengan tombol cepat untuk merek populer: Hyundai, Wuling, BYD, Chery, MG, BMW, Tesla, Toyota, Kia).
+- Jumlah unit diakumulasikan ke total catatan yang sudah ada di wilayah tersebut.
+- Wajib menyertakan alasan penambahan / sumber data.
 
-Untuk HCS (agregat):
+**4. Edit HCS (`hcs-edit`)**
+- Koreksi atau pembaruan total unit catatan HCS terpasang untuk kombinasi wilayah dan merek.
+- Dilengkapi tabel pencarian interaktif data HCS dengan tombol "Edit" di setiap baris.
+- Tampilan detail item terpilih, jumlah saat ini, dan input jumlah baru serta alasan koreksi.
 
-- Pilih kabupaten/kota dan ketik kategori kendaraan
-- Pilih mode: "Tambah catatan" (+X ke total sekarang) atau "Koreksi jumlah akhir" (set ke nilai tertentu)
-- Isi alasan perubahan (wajib)
-- Simpan
+**5. Upload Excel (`upload`)**
+- Upload berkas Excel `.xlsx` untuk data massal SPKLU (Jawa Timur & Bali) dan catatan agregat HCS (mode ganti seluruh agregat atau tambah ke agregat).
 
-**2. Upload file Excel**
-
-Untuk data massal (ratusan atau ribuan baris). Alur: pilih file -> pratinjau ringkasan -> konfirmasi -> tersimpan ke MySQL.
+**6. Riwayat (`history`)**
+- Tabel audit log interaktif yang menampilkan 100 aktivitas transaksi terakhir (waktu, akun pelaksana, dataset, tindakan, target, dan alasan perubahan).
 
 ### Fitur Keamanan Data
 
