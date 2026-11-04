@@ -2,7 +2,10 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePathname } from 'next/navigation'
-import { RefreshCw, ChevronRight, Menu, ChevronDown, KeyRound, X, Eye, EyeOff, Check } from 'lucide-react'
+import {
+  Menu, ChevronDown, KeyRound, X, Eye, EyeOff,
+  Bell, RefreshCw, Check,
+} from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { changePassword } from '@/lib/api'
 
@@ -22,20 +25,21 @@ const ROLE_LABELS: Record<string, string> = {
   viewer:      'Viewer',
 }
 
-const inputCls = 'w-full rounded-xl px-3 py-2.5 text-sm text-indigo-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-400/40 transition border border-primary-100 bg-white/80'
+const inputCls =
+  'w-full rounded-xl px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition border border-slate-200 bg-white'
 
 export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
-  const { user, isAdmin } = useAuth()
+  const { user } = useAuth()
   const qc       = useQueryClient()
   const pathname = usePathname()
-  const [loading,   setLoading]   = useState(false)
   const [refreshed, setRefreshed] = useState(false)
+  const [loading,   setLoading]   = useState(false)
 
-  // Dropdown state
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [notifOpen,    setNotifOpen]    = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const notifRef    = useRef<HTMLDivElement>(null)
 
-  // Change password modal state
   const [pwModal,   setPwModal]   = useState(false)
   const [oldPw,     setOldPw]     = useState('')
   const [newPw,     setNewPw]     = useState('')
@@ -46,11 +50,13 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const [pwLoading, setPwLoading] = useState(false)
   const [pwMsg,     setPwMsg]     = useState<{ ok: boolean; text: string } | null>(null)
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false)
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -61,8 +67,8 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     setLoading(true)
     setRefreshed(false)
     await qc.invalidateQueries()
-    setTimeout(() => { setLoading(false); setRefreshed(true) }, 700)
-    setTimeout(() => setRefreshed(false), 3500)
+    setTimeout(() => { setLoading(false); setRefreshed(true) }, 600)
+    setTimeout(() => setRefreshed(false), 3000)
   }
 
   function openPwModal() {
@@ -80,7 +86,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     try {
       await changePassword(oldPw, newPw)
       setPwMsg({ ok: true, text: 'Password berhasil diubah!' })
-      setTimeout(() => { setPwModal(false); setPwMsg(null) }, 1800)
+      setTimeout(() => { setPwModal(false); setPwMsg(null) }, 1500)
     } catch {
       setPwMsg({ ok: false, text: 'Password lama salah atau terjadi kesalahan server.' })
     } finally {
@@ -89,42 +95,42 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   }
 
   const pageLabel = PAGE_LABELS[pathname] ?? 'Dashboard'
-  const initials  = (user?.display_name || user?.username || '?').slice(0, 2).toUpperCase()
+  const initials  = (user?.display_name || user?.username || 'AD').slice(0, 2).toUpperCase()
 
   return (
     <>
-      <header
-        className="glass h-14 px-4 sm:px-6 flex items-center justify-between shrink-0 border-b border-white/50"
-        style={{ background: 'rgba(255,255,255,0.85)' }}
-      >
-        {/* Left: hamburger + breadcrumb */}
+      <header className="flex items-center justify-between px-2 sm:px-4 py-2 flex-shrink-0 z-10">
+        {/* Left: Breadcrumbs */}
         <div className="flex items-center gap-2">
+          {/* Mobile hamburger */}
           <button
             onClick={onMenuClick}
-            className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+            className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-white/60 transition-colors"
             aria-label="Buka menu navigasi"
           >
             <Menu size={18} />
           </button>
-          <div className="flex items-center gap-1.5 text-sm">
-            <span className="text-primary-400 font-medium hidden sm:block">GeoEV</span>
-            <ChevronRight size={13} className="text-primary-300 hidden sm:block" />
-            <span className="font-semibold text-indigo-800 text-sm sm:text-base">{pageLabel}</span>
+
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
+            <span className="font-semibold text-slate-800">GeoEV</span>
+            <span className="text-slate-400">›</span>
+            <span className="font-medium text-slate-700">{pageLabel}</span>
           </div>
         </div>
 
-        {/* Right cluster */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* Refresh button */}
           <button
             onClick={handleRefresh}
-            className="group flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-primary-600 transition-all duration-200 px-2.5 sm:px-3 py-1.5 rounded-lg border border-primary-100 hover:border-primary-300 hover:bg-primary-50/60 hover:shadow-[0_2px_8px_rgba(108,99,255,0.10)]"
+            className="flex items-center gap-2 px-3 py-1.5 bg-white/70 hover:bg-white border border-white rounded-xl text-slate-700 text-xs font-medium transition-colors shadow-xs"
           >
-            <RefreshCw size={12} className={loading ? 'animate-spin text-primary-500' : 'transition-transform duration-500 group-hover:rotate-180'} />
+            <RefreshCw size={12} className={loading ? 'animate-spin text-blue-600' : ''} />
             <span className="hidden sm:inline">
               {refreshed ? (
                 <span className="text-green-600 font-semibold inline-flex items-center gap-1">
                   <span>Diperbarui</span>
-                  <Check size={12} className="stroke-[2.5]" />
+                  <Check size={11} />
                 </span>
               ) : (
                 'Muat ulang'
@@ -132,62 +138,79 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
             </span>
           </button>
 
-          <div className="w-px h-5 bg-primary-100" />
+          {/* Notification button with popover */}
+          <div className="relative" ref={notifRef}>
+            <button
+              onClick={() => setNotifOpen((v) => !v)}
+              className="relative p-2 bg-white/70 hover:bg-white rounded-xl border border-white text-slate-600 shadow-xs transition-colors"
+              title="Notifikasi Sistem"
+            >
+              <Bell size={15} />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 border border-white rounded-full animate-pulse" />
+            </button>
 
-          {/* User chip with dropdown */}
+            {notifOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl overflow-hidden z-50 bg-white/95 backdrop-blur-xl border border-white shadow-xl p-3 animate-slide-up">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                  <span className="text-xs font-bold text-slate-800">Status &amp; Notifikasi</span>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-600 font-semibold px-2 py-0.5 rounded-full border border-emerald-100">
+                    Sistem Normal
+                  </span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="p-2 rounded-xl bg-slate-50 border border-slate-100/60">
+                    <p className="font-semibold text-slate-700 text-[11px]">Integrasi Peta &amp; SPKLU Aktif</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Semua koordinat SPKLU Jawa Timur &amp; Bali terpetakan.</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-slate-50 border border-slate-100/60">
+                    <p className="font-semibold text-slate-700 text-[11px]">Audit Kualitas Data</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Koreksi wilayah HCS dan inventaris berjalan sinkron.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* User profile with dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen((o) => !o)}
-              className="flex items-center gap-1.5 rounded-xl px-2 py-1.5 hover:bg-primary-50 transition-all duration-200 hover:shadow-[0_2px_8px_rgba(108,99,255,0.08)]"
+              className="flex items-center gap-2 pl-2 border-l border-slate-200/80 cursor-pointer py-1"
             >
               <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[10px] shrink-0 shadow-xs"
+                style={{ background: 'linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%)' }}
               >
                 {initials}
               </div>
-              <span className="text-sm font-medium text-indigo-900 hidden sm:block max-w-[120px] truncate">
-                {user?.display_name || user?.username}
+              <span className="font-medium text-slate-700 text-xs hidden sm:block">
+                {user?.display_name || user?.username || 'Admin'}
               </span>
-              {isAdmin && (
-                <span className="text-[10px] bg-primary-50 text-primary-700 border border-primary-200 px-1.5 py-0.5 rounded-full font-semibold hidden md:inline">
-                  {user?.role === 'super_admin' ? 'Super Admin' : 'Admin'}
-                </span>
-              )}
               <ChevronDown
                 size={12}
-                className={`text-slate-400 transition-transform hidden sm:block ${dropdownOpen ? 'rotate-180' : ''}`}
+                className={`text-slate-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
               />
             </button>
 
-            {/* Dropdown menu */}
+            {/* Dropdown Menu */}
             {dropdownOpen && (
               <div
-                className="absolute right-0 top-full mt-2 w-52 rounded-2xl overflow-hidden z-50 animate-slide-up"
-                style={{
-                  background: 'rgba(255,255,255,0.97)',
-                  backdropFilter: 'blur(16px)',
-                  WebkitBackdropFilter: 'blur(16px)',
-                  border: '1px solid rgba(108,99,255,0.12)',
-                  boxShadow: '0 8px 32px rgba(108,99,255,0.18), 0 2px 8px rgba(0,0,0,0.06)',
-                }}
+                className="absolute right-0 top-full mt-2 w-48 rounded-2xl overflow-hidden z-50 bg-white/95 backdrop-blur-xl border border-white shadow-lg p-1 animate-slide-up"
               >
-                {/* User info header */}
-                <div className="px-4 py-3 border-b border-primary-50">
-                  <p className="text-xs font-bold text-indigo-900 truncate">
-                    {user?.display_name || user?.username}
+                <div className="px-3 py-2 border-b border-slate-100">
+                  <p className="text-xs font-bold text-slate-800 truncate">
+                    {user?.display_name || user?.username || 'Admin'}
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {ROLE_LABELS[user?.role ?? ''] ?? user?.role}
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {ROLE_LABELS[user?.role ?? ''] ?? user?.role ?? 'Super Admin'}
                   </p>
                 </div>
-                {/* Actions */}
                 <div className="py-1">
                   <button
                     onClick={openPwModal}
-                    className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-slate-600 hover:bg-primary-50/70 hover:text-primary-700 transition-colors text-left"
+                    className="flex items-center gap-2 w-full px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 hover:text-blue-600 rounded-lg transition-colors text-left"
                   >
-                    <KeyRound size={14} className="text-primary-400" />
+                    <KeyRound size={13} className="text-slate-400" />
                     Ganti Password
                   </button>
                 </div>
@@ -197,136 +220,94 @@ export default function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         </div>
       </header>
 
-      {/* Change Password Modal */}
+      {/* Password Modal */}
       {pwModal && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-          style={{ background: 'rgba(30,27,75,0.35)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/35 backdrop-blur-sm"
         >
-          <div
-            className="w-full max-w-sm rounded-3xl p-6 animate-slide-up"
-            style={{
-              background: 'rgba(255,255,255,0.97)',
-              backdropFilter: 'blur(24px)',
-              WebkitBackdropFilter: 'blur(24px)',
-              border: '1px solid rgba(108,99,255,0.15)',
-              boxShadow: '0 24px 60px rgba(108,99,255,0.22), 0 4px 16px rgba(0,0,0,0.08)',
-            }}
-          >
-            {/* Modal header */}
-            <div className="flex items-center justify-between mb-5">
+          <div className="w-full max-w-sm rounded-3xl p-6 bg-white border border-white shadow-2xl animate-slide-up">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}
-                >
-                  <KeyRound size={16} className="text-white" />
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <KeyRound size={16} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-indigo-900">Ganti Password</h2>
-                  <p className="text-xs text-slate-400">{user?.username}</p>
+                  <h2 className="text-sm font-bold text-slate-800">Ganti Password</h2>
+                  <p className="text-[11px] text-slate-400">{user?.username}</p>
                 </div>
               </div>
               <button
                 onClick={() => { setPwModal(false); setPwMsg(null) }}
-                className="p-1.5 rounded-lg hover:bg-primary-50 text-slate-400 hover:text-primary-600 transition-colors"
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"
               >
                 <X size={16} />
               </button>
             </div>
 
             <form onSubmit={handleChangePw} className="space-y-3">
-              {/* Old password */}
               <div>
-                <label className="block text-xs font-semibold text-indigo-700/70 uppercase tracking-wide mb-1.5">
-                  Password Lama
-                </label>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Password Lama</label>
                 <div className="relative">
                   <input
                     type={showOld ? 'text' : 'password'}
                     value={oldPw}
                     onChange={(e) => setOldPw(e.target.value)}
-                    className={inputCls + ' pr-10'}
+                    className={`${inputCls} pr-8`}
                     placeholder="Password saat ini"
                     required
-                    autoComplete="current-password"
                   />
-                  <button type="button" onClick={() => setShowOld((s) => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-500 transition-colors">
-                    {showOld ? <EyeOff size={14} /> : <Eye size={14} />}
+                  <button type="button" onClick={() => setShowOld((s) => !s)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                    {showOld ? <EyeOff size={13} /> : <Eye size={13} />}
                   </button>
                 </div>
               </div>
 
-              {/* New password */}
               <div>
-                <label className="block text-xs font-semibold text-indigo-700/70 uppercase tracking-wide mb-1.5">
-                  Password Baru
-                </label>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Password Baru</label>
                 <div className="relative">
                   <input
                     type={showNew ? 'text' : 'password'}
                     value={newPw}
                     onChange={(e) => setNewPw(e.target.value)}
-                    className={inputCls + ' pr-10'}
+                    className={`${inputCls} pr-8`}
                     placeholder="Minimal 6 karakter"
                     required
-                    autoComplete="new-password"
                   />
-                  <button type="button" onClick={() => setShowNew((s) => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-500 transition-colors">
-                    {showNew ? <EyeOff size={14} /> : <Eye size={14} />}
+                  <button type="button" onClick={() => setShowNew((s) => !s)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                    {showNew ? <EyeOff size={13} /> : <Eye size={13} />}
                   </button>
                 </div>
               </div>
 
-              {/* Confirm password */}
               <div>
-                <label className="block text-xs font-semibold text-indigo-700/70 uppercase tracking-wide mb-1.5">
-                  Konfirmasi Password Baru
-                </label>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Konfirmasi Password</label>
                 <div className="relative">
                   <input
                     type={showConf ? 'text' : 'password'}
                     value={confirmPw}
                     onChange={(e) => setConfirmPw(e.target.value)}
-                    className={inputCls + ' pr-10'}
+                    className={`${inputCls} pr-8`}
                     placeholder="Ulangi password baru"
                     required
-                    autoComplete="new-password"
                   />
-                  <button type="button" onClick={() => setShowConf((s) => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-500 transition-colors">
-                    {showConf ? <EyeOff size={14} /> : <Eye size={14} />}
+                  <button type="button" onClick={() => setShowConf((s) => !s)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                    {showConf ? <EyeOff size={13} /> : <Eye size={13} />}
                   </button>
                 </div>
               </div>
 
-              {/* Message */}
               {pwMsg && (
-                <div className={`text-sm rounded-xl px-4 py-2.5 ${pwMsg.ok
-                  ? 'bg-green-50 border border-green-200 text-green-700'
-                  : 'bg-red-50 border border-red-200 text-red-600'}`}>
+                <div className={`text-xs rounded-xl px-3 py-2 ${pwMsg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
                   {pwMsg.text}
                 </div>
               )}
 
-              {/* Submit */}
               <button
                 type="submit"
-                disabled={pwLoading || pwMsg?.ok}
-                className="w-full py-2.5 rounded-xl text-white font-semibold text-sm transition-all disabled:opacity-60 mt-1"
-                style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)', boxShadow: '0 4px 16px rgba(108,99,255,0.35)' }}
+                disabled={pwLoading || Boolean(pwMsg?.ok)}
+                className="w-full py-2.5 rounded-xl text-white font-semibold text-xs bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm mt-2 disabled:opacity-50"
               >
-                {pwLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Mengubah...
-                  </span>
-                ) : pwMsg?.ok ? 'Berhasil!' : 'Ubah Password'}
+                {pwLoading ? 'Mengubah...' : pwMsg?.ok ? 'Berhasil!' : 'Ubah Password'}
               </button>
             </form>
           </div>

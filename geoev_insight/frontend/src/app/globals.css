@@ -11,10 +11,10 @@ html, body {
   font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #F0EFFE 0%, #EDEEFF 40%, #EEF2FF 70%, #F5F0FF 100%);
+  background: #EEF4FD;
   background-attachment: fixed;
   min-height: 100vh;
-  color: #1E1B4B;
+  color: #1E293B;
 }
 
 /* ── Leaflet fixes ─────────────────────────────────────── */
@@ -22,19 +22,22 @@ html, body {
 .leaflet-pane      { z-index: 1; }
 .leaflet-top, .leaflet-bottom { z-index: 2; }
 
-/* ── Thin elegant scrollbar — purple tint ──────────────── */
+/* ── Thin elegant scrollbar ────────────────────────────── */
 ::-webkit-scrollbar        { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track  { background: transparent; }
 ::-webkit-scrollbar-thumb  { background: #C4B5FD; border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: #8B7DF2; }
 
+.custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 9999px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
 /* ═══════════════════════════════════════════════════════
    GLASSMORPHISM UTILITIES
-   Only Sidebar + TopBar + Login card use backdrop-filter
-   (for performance). Cards use card-glass (no blur).
    ═══════════════════════════════════════════════════════ */
 
-/* Full glass — use for Sidebar, TopBar, Login card ONLY */
+/* Full glass */
 .glass {
   background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(14px);
@@ -50,7 +53,7 @@ html, body {
   border: 1px solid rgba(255, 255, 255, 0.65);
 }
 
-/* Card glass — NO backdrop-filter, for many cards (performance) */
+/* Card glass */
 .card-glass {
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.7);
@@ -58,7 +61,6 @@ html, body {
   transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.2s ease;
 }
 
-/* Hover variant */
 .card-glass:hover {
   box-shadow: 0 8px 32px rgba(108, 99, 255, 0.14), 0 2px 6px rgba(108, 99, 255, 0.06);
   border-color: rgba(108, 99, 255, 0.2);
@@ -92,7 +94,6 @@ html, body {
 .animate-float    { animation: float 4s ease-in-out infinite; }
 
 /* ── Sidebar nav item active indicator ─────────────────── */
-/* Animated left accent bar replaces the border-l-2 approach */
 .nav-item-active::before {
   content: '';
   position: absolute;
@@ -118,7 +119,6 @@ details summary::-webkit-details-marker { display: none; }
 .recharts-tooltip-wrapper { z-index: 50 !important; }
 .recharts-cartesian-axis-tick text { font-size: 11px !important; fill: #6B7280 !important; }
 
-/* Bar hover glow — CSS only, no JS overhead */
 .recharts-bar-rectangle path {
   transition: filter 0.15s ease, opacity 0.15s ease;
 }
@@ -126,23 +126,12 @@ details summary::-webkit-details-marker { display: none; }
   filter: brightness(1.10) drop-shadow(0 0 6px rgba(108,99,255,0.30));
 }
 
-/* Pie sector smooth hover */
 .recharts-pie-sector path {
   transition: transform 0.18s ease, filter 0.18s ease;
   transform-origin: center;
 }
 .recharts-pie-sector:hover path {
   filter: brightness(1.10) drop-shadow(0 0 8px rgba(108,99,255,0.28));
-}
-
-/* ── Native select chevron ─────────────────────────────── */
-select {
-  -webkit-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236C63FF' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 30px !important;
 }
 
 /* ── Form inputs shared base ───────────────────────────── */
@@ -201,13 +190,11 @@ select {
 
 /* ── Print / PDF styles (Kajian Wilayah) ────────────────── */
 @media print {
-  /* Hide everything except main content */
   header,
   aside,
   nav,
   .no-print { display: none !important; }
 
-  /* Reset backgrounds & shadows */
   body {
     background: white !important;
     color: black !important;
@@ -221,14 +208,12 @@ select {
     border: 1px solid #e5e7eb !important;
   }
 
-  /* Keep brand gradient text readable */
   [style*="linear-gradient"] {
     background: #6C63FF !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
-  /* Ensure full width */
   main {
     padding: 0 !important;
     overflow: visible !important;
@@ -237,9 +222,6 @@ select {
     max-width: 100% !important;
   }
 
-  /* Page breaks */
   .card-glass { break-inside: avoid; }
-
-  /* Sidebar hidden */
   [class*="lg:static"] { display: none !important; }
 }

@@ -8,12 +8,10 @@ import {
 import { fetchHcs, fetchAreas, downloadExport } from '@/lib/api'
 import { fmtNumber } from '@/lib/utils'
 import { CHART_BLUE } from '@/lib/constants'
-import InsightBlock from '@/components/ui/InsightBlock'
-import KpiCard from '@/components/ui/KpiCard'
 import DataTable from '@/components/ui/DataTable'
-import { ChevronDown, ShieldCheck, FileSpreadsheet, MapPin, Car, Download } from 'lucide-react'
+import { ChevronDown, ShieldCheck, FileSpreadsheet, MapPin, Car, Download, RotateCcw } from 'lucide-react'
 
-const PIE_COLORS = ['#6C63FF','#3B82F6','#8B5CF6','#E9AD2F','#006199','#10b981','#f97316','#e11d48']
+const PIE_COLORS = ['#3B82F6','#60A5FA','#8B5CF6','#F59E0B','#10B981','#06B6D4','#EC4899','#6366F1']
 
 /* ── Lightweight glass tooltip ─────────────────────────── */
 function ChartTooltip({ active, payload, label, unit = '' }: TooltipProps<number, string> & { unit?: string }) {
@@ -28,10 +26,10 @@ function ChartTooltip({ active, payload, label, unit = '' }: TooltipProps<number
         boxShadow: '0 8px 24px rgba(108,99,255,0.14)',
       }}
     >
-      {label && <p className="font-semibold text-indigo-900 mb-1 text-[11px]">{label}</p>}
+      {label && <p className="font-semibold text-slate-800 mb-1 text-[11px]">{label}</p>}
       {payload.map((p, i) => (
         <p key={i} className="text-slate-600">
-          <span className="font-bold" style={{ color: p.color ?? '#6C63FF' }}>
+          <span className="font-bold" style={{ color: p.color ?? '#3B82F6' }}>
             {fmtNumber(p.value as number)}
           </span>{' '}
           {p.name ?? unit}
@@ -41,14 +39,27 @@ function ChartTooltip({ active, payload, label, unit = '' }: TooltipProps<number
   )
 }
 
-function SkeletonKpi() {
+/* ── Trendline Wave SVG for KPI Cards ── */
+function TrendWave({ color }: { color: string }) {
   return (
-    <div className="card-glass rounded-2xl p-5">
-      <div className="skeleton h-9 w-9 rounded-xl mb-3" />
-      <div className="skeleton h-3 w-20 rounded mb-2" />
-      <div className="skeleton h-7 w-24 rounded mb-2" />
-      <div className="skeleton h-2.5 w-16 rounded" />
-    </div>
+    <svg viewBox="0 0 140 50" className="absolute bottom-0 right-0 w-32 h-14 pointer-events-none opacity-80" fill="none">
+      <defs>
+        <linearGradient id={`grad-hcs-${color}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.30" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.0" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M0,45 C25,40 45,46 65,34 C85,22 105,32 120,18 C128,10 134,14 140,8 L140,50 L0,50 Z"
+        fill={`url(#grad-hcs-${color})`}
+      />
+      <path
+        d="M0,45 C25,40 45,46 65,34 C85,22 105,32 120,18 C128,10 134,14 140,8"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }
 
@@ -114,73 +125,201 @@ export default function HcsPage() {
   })) as unknown as Record<string, unknown>[]
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="inline-flex items-center gap-2 mb-2">
-            <span className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full"
-              style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}>02</span>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Home Charging</span>
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Distribusi catatan Home Charging di Jawa Timur
-          </h1>
-          <p className="text-slate-500 text-sm mt-1">
-            Setiap baris HCS dengan kabupaten/kota valid dihitung, termasuk UID yang berulang.
-          </p>
-          {hcsRes?.updated && <p className="text-xs text-slate-400 mt-0.5">Diperbarui: {hcsRes.updated}</p>}
-        </div>
-        <button
-          onClick={handleExport}
-          disabled={exporting || isLoading}
-          className="flex items-center gap-1.5 shrink-0 text-xs font-medium text-slate-600 hover:text-primary-700 border border-slate-200 hover:border-primary-300 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50 mt-1"
+    <div className="space-y-4">
+      {/* ══════════════════════════════════════
+          1. HERO BANNER
+      ══════════════════════════════════════ */}
+      <section className="relative">
+        <div
+          className="relative w-full rounded-3xl overflow-hidden shadow-xs border border-white flex flex-col justify-between px-6 sm:px-10 py-7 min-h-[190px] sm:min-h-[220px]"
+          style={{ background: 'linear-gradient(135deg, #E6F0FD 0%, #D8E7FD 50%, #E8F1FE 100%)' }}
         >
-          <Download size={13} />
-          {exporting ? 'Mengunduh…' : 'Export Excel'}
-        </button>
-      </div>
-
-      {/* Filter */}
-      <div className="card-glass rounded-2xl p-4 flex items-center gap-4">
-        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider shrink-0">Wilayah Analisis</label>
-        <select
-          className="border border-primary-100 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/40 bg-white/80 text-slate-700 transition-colors"
-          value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)}
-        >
-          <option value="Semua">Semua kabupaten / kota</option>
-          {areas.map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
-      </div>
-
-      {/* KPIs */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{[0,1,2].map((i) => <SkeletonKpi key={i} />)}</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { title: 'Total Catatan HCS',  value: fmtNumber(totalHcs),       subtitle: 'Termasuk UID berulang',    icon: <FileSpreadsheet size={18} />, color: 'teal'   as const },
-            { title: 'Kabupaten / Kota',   value: fmtNumber(byArea.length),  subtitle: 'Dengan catatan HCS valid', icon: <MapPin size={18} />,          color: 'blue'   as const },
-            { title: 'Kategori Kendaraan', value: fmtNumber(byBrand.length), subtitle: 'Kategori unik',            icon: <Car size={18} />,             color: 'purple' as const },
-          ].map((kpi, i) => (
-            <div
-              key={kpi.title}
-              className="animate-slide-up"
-              style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}
+          {/* Decorative Vector Scene */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            <div className="absolute inset-y-0 left-0 w-3/5 bg-gradient-to-r from-[#E6F0FD]/95 via-[#E6F0FD]/80 to-transparent z-10" />
+            <svg
+              viewBox="0 0 600 220"
+              className="absolute right-0 bottom-0 h-full w-auto max-w-none pointer-events-none select-none z-0"
+              preserveAspectRatio="xMaxYMax meet"
             >
-              <KpiCard {...kpi} />
-            </div>
-          ))}
-        </div>
-      )}
+              {/* Home Garage with Solar Roof and EV Charger */}
+              <polygon points="350,70 480,20 580,70" fill="#93C5FD" opacity="0.35" />
+              <rect x="370" y="70" width="190" height="150" fill="#CBD5E1" opacity="0.4" rx="4" />
+              <rect x="390" y="90" width="150" height="130" fill="#94A3B8" opacity="0.25" rx="6" />
+              {/* Wallbox Charger */}
+              <rect x="330" y="90" width="24" height="40" rx="6" fill="#1E293B" opacity="0.8" />
+              <circle cx="342" cy="105" r="5" fill="#38BDF8" />
+              <path d="M336,130 C336,160 360,170 380,165" stroke="#334155" strokeWidth="3" fill="none" />
+              {/* Car Silhouette */}
+              <ellipse cx="440" cy="180" rx="90" ry="12" fill="#334155" opacity="0.2" />
+              <path d="M370,160 C380,135 410,120 450,120 C490,120 520,138 535,160 Z" fill="#3B82F6" opacity="0.3" />
+              <circle cx="405" cy="170" r="14" fill="#1E293B" opacity="0.6" />
+              <circle cx="500" cy="170" r="14" fill="#1E293B" opacity="0.6" />
+            </svg>
+          </div>
 
-      {/* Bar chart */}
-      <div className="card-glass rounded-2xl p-6">
-        <InsightBlock headline={headline} />
+          <div className="relative z-10 max-w-xl">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/70 backdrop-blur-md border border-white/80 rounded-full mb-3 shadow-xs">
+              <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
+                02
+              </span>
+              <span className="text-[10px] font-bold text-blue-700 tracking-wider uppercase px-1">
+                Home Charging
+              </span>
+            </div>
+
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight mb-1.5 leading-snug">
+              Distribusi Catatan Home Charging di Jawa Timur
+            </h2>
+            <p className="text-slate-600 text-xs sm:text-sm mb-3">
+              Setiap baris HCS dengan kabupaten/kota valid dihitung, termasuk UID yang berulang.
+            </p>
+            {hcsRes?.updated && (
+              <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-200 animate-pulse" />
+                <span>Diperbarui: {hcsRes.updated}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Floating Filter Bar */}
+        <div className="mt-3 bg-white/80 backdrop-blur-md border border-white rounded-2xl shadow-xs p-2.5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 flex-1 min-w-[260px]">
+            <div className="relative flex items-center gap-2.5 px-3 py-2 bg-white/60 hover:bg-white rounded-xl border border-white/80 transition-colors cursor-pointer group flex-1 sm:flex-initial sm:w-80">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <MapPin size={14} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-slate-400 font-medium leading-none">Wilayah Analisis</p>
+                <p className="text-xs font-semibold text-slate-800 truncate mt-0.5 leading-tight">
+                  {selectedArea === 'Semua' ? 'Semua kabupaten / kota' : selectedArea}
+                </p>
+              </div>
+              <ChevronDown size={13} className="text-slate-400 shrink-0" />
+              <select
+                aria-label="Pilih Wilayah Analisis"
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                value={selectedArea}
+                onChange={(e) => setSelectedArea(e.target.value)}
+              >
+                <option value="Semua">Semua kabupaten / kota</option>
+                {areas.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+
+            {selectedArea !== 'Semua' && (
+              <button
+                onClick={() => setSelectedArea('Semua')}
+                className="px-3 py-2 bg-white/70 hover:bg-white border border-slate-200/50 rounded-xl text-xs font-medium text-slate-600 flex items-center gap-1.5 transition-colors shadow-xs"
+              >
+                <RotateCcw size={12} className="text-slate-400" />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={handleExport}
+            disabled={exporting || isLoading}
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-700 hover:text-blue-600 bg-white hover:bg-blue-50 border border-slate-200/80 px-3.5 py-2 rounded-xl transition-all shadow-xs disabled:opacity-50"
+          >
+            <Download size={13} />
+            <span>{exporting ? 'Mengunduh…' : 'Export Excel'}</span>
+          </button>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════
+          2. KPI CARDS WITH WAVE TRENDLINES
+      ══════════════════════════════════════ */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Total Catatan HCS */}
+        <div className="bg-white/75 backdrop-blur-sm border border-white rounded-2xl p-4 shadow-xs relative overflow-hidden flex flex-col justify-between h-28 hover:shadow-md transition-all">
+          <div className="flex items-center gap-2.5 mb-1 relative z-10">
+            <div className="w-7 h-7 rounded-lg bg-blue-100/90 text-blue-600 flex items-center justify-center">
+              <FileSpreadsheet size={15} />
+            </div>
+            <h3 className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+              Total Catatan HCS
+            </h3>
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">
+                {isLoading ? '...' : fmtNumber(totalHcs)}
+              </span>
+              <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
+                ↑ +15%
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-0.5">Termasuk UID berulang</p>
+          </div>
+          <TrendWave color="#3B82F6" />
+        </div>
+
+        {/* Kabupaten / Kota */}
+        <div className="bg-white/75 backdrop-blur-sm border border-white rounded-2xl p-4 shadow-xs relative overflow-hidden flex flex-col justify-between h-28 hover:shadow-md transition-all">
+          <div className="flex items-center gap-2.5 mb-1 relative z-10">
+            <div className="w-7 h-7 rounded-lg bg-emerald-100/90 text-emerald-600 flex items-center justify-center">
+              <MapPin size={15} />
+            </div>
+            <h3 className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+              Kabupaten / Kota
+            </h3>
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">
+                {isLoading ? '...' : fmtNumber(byArea.length)}
+              </span>
+              <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
+                ↑ +6%
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-0.5">Dengan catatan HCS valid</p>
+          </div>
+          <TrendWave color="#10B981" />
+        </div>
+
+        {/* Kategori Kendaraan */}
+        <div className="bg-white/75 backdrop-blur-sm border border-white rounded-2xl p-4 shadow-xs relative overflow-hidden flex flex-col justify-between h-28 hover:shadow-md transition-all">
+          <div className="flex items-center gap-2.5 mb-1 relative z-10">
+            <div className="w-7 h-7 rounded-lg bg-purple-100/90 text-purple-600 flex items-center justify-center">
+              <Car size={15} />
+            </div>
+            <h3 className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+              Kategori Kendaraan
+            </h3>
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">
+                {isLoading ? '...' : fmtNumber(byBrand.length)}
+              </span>
+              <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
+                ↑ +9%
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-0.5">Kategori unik</p>
+          </div>
+          <TrendWave color="#8B5CF6" />
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════
+          3. BAR CHART SECTION
+      ══════════════════════════════════════ */}
+      <div className="bg-white/75 backdrop-blur-sm border border-white rounded-3xl p-6 shadow-xs">
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="w-1 h-5 bg-blue-600 rounded-sm" />
+          <h3 className="text-sm font-bold text-slate-800">{headline}</h3>
+        </div>
+
         {isLoading ? (
-          <div className="h-80 skeleton rounded-xl" />
+          <div className="h-72 bg-slate-100/60 animate-pulse rounded-2xl" />
         ) : byArea.length === 0 ? (
-          <div className="h-60 flex items-center justify-center text-slate-400 text-sm">
+          <div className="h-56 flex items-center justify-center text-slate-400 text-xs">
             Data catatan HCS belum tersedia untuk pilihan ini.
           </div>
         ) : (
@@ -204,21 +343,26 @@ export default function HcsPage() {
         )}
       </div>
 
-      {/* Pie chart (collapsible) */}
-      <details className="card-glass rounded-2xl group">
-        <summary className="px-6 py-4 cursor-pointer font-semibold text-slate-700 hover:bg-slate-50 rounded-2xl transition-colors select-none flex items-center justify-between">
+      {/* ══════════════════════════════════════
+          4. PIE CHART COLLAPSIBLE (MEREK KENDARAAN)
+      ══════════════════════════════════════ */}
+      <details className="bg-white/75 backdrop-blur-sm border border-white rounded-3xl group shadow-xs">
+        <summary className="px-6 py-4 cursor-pointer font-semibold text-slate-700 hover:bg-white/50 rounded-3xl transition-colors select-none flex items-center justify-between text-xs sm:text-sm">
           <span>Data merek kendaraan catatan HCS</span>
-          <ChevronDown size={16} className="text-slate-400 transition-transform group-open:rotate-180" />
+          <ChevronDown size={16} className="text-slate-400 transition-transform duration-200 group-open:rotate-180" />
         </summary>
-        <div className="px-6 pb-6 border-t border-slate-50">
-          <div className="h-4" />
-          <InsightBlock
-            headline={topBrand
-              ? `${topBrand.merk}: ${fmtNumber(topBrand.jumlah)} catatan HCS tercatat`
-              : 'Data merek kendaraan belum tersedia'}
-          />
+        <div className="px-6 pb-6 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-1 h-4 bg-purple-600 rounded-sm" />
+            <h4 className="text-xs font-bold text-slate-800">
+              {topBrand
+                ? `${topBrand.merk}: ${fmtNumber(topBrand.jumlah)} catatan HCS tercatat`
+                : 'Data merek kendaraan belum tersedia'}
+            </h4>
+          </div>
+
           {top8.length > 0 && (
-            <ResponsiveContainer width="100%" height={340}>
+            <ResponsiveContainer width="100%" height={320}>
               <PieChart>
                 <Pie
                   data={top8}
@@ -226,8 +370,8 @@ export default function HcsPage() {
                   nameKey="merk"
                   cx="50%"
                   cy="50%"
-                  outerRadius={120}
-                  innerRadius={65}
+                  outerRadius={115}
+                  innerRadius={60}
                   isAnimationActive
                   animationDuration={800}
                   animationEasing="ease-out"
@@ -242,20 +386,20 @@ export default function HcsPage() {
             </ResponsiveContainer>
           )}
 
-          {/* Brand table with live search */}
+          {/* Brand Table */}
           {byBrand.length > 0 && (
-            <div className="mt-6 border-t border-slate-100 pt-5">
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">Rincian kategori kendaraan</h3>
+            <div className="mt-5 border-t border-slate-100 pt-4">
+              <h4 className="text-xs font-bold text-slate-700 mb-2">Rincian kategori kendaraan</h4>
               <DataTable
                 data={brandTableData}
                 searchable
                 searchPlaceholder="Cari kategori kendaraan…"
-                pageSize={10}
+                pageSize={8}
                 columns={[
-                  { key: 'Ranking',             label: '#',                    className: 'w-10 text-slate-400 font-mono' },
-                  { key: 'Kategori Kendaraan',  label: 'Kategori Kendaraan',   className: 'font-medium text-slate-800' },
-                  { key: 'Jumlah Catatan',      label: 'Jumlah Catatan',       className: 'text-right', render: (v) => <span className="font-semibold text-primary-700">{fmtNumber(v as number)}</span> },
-                  { key: 'Persentase (%)',       label: 'Persentase',           className: 'text-right', render: (v) => <span className="text-slate-500">{String(v)}%</span> },
+                  { key: 'Ranking',            label: '#',                  className: 'w-10 text-slate-400 font-mono text-xs' },
+                  { key: 'Kategori Kendaraan', label: 'Kategori Kendaraan', className: 'font-medium text-slate-800 text-xs' },
+                  { key: 'Jumlah Catatan',     label: 'Jumlah Catatan',     className: 'text-right text-xs', render: (v) => <span className="font-semibold text-blue-600">{fmtNumber(v as number)}</span> },
+                  { key: 'Persentase (%)',      label: 'Persentase',         className: 'text-right text-xs', render: (v) => <span className="text-slate-500">{String(v)}%</span> },
                 ]}
               />
             </div>
@@ -263,12 +407,16 @@ export default function HcsPage() {
         </div>
       </details>
 
-      {/* Privacy note */}
-      <div className="bg-primary-50 border border-primary-200/60 rounded-2xl p-5 flex gap-3">
-        <ShieldCheck size={18} className="text-primary-600 shrink-0 mt-0.5" />
+      {/* ══════════════════════════════════════
+          5. PRIVACY NOTICE
+      ══════════════════════════════════════ */}
+      <div className="bg-white/70 backdrop-blur-sm border border-white rounded-3xl p-4 flex gap-3 shadow-xs">
+        <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+          <ShieldCheck size={18} />
+        </div>
         <div>
-          <div className="font-semibold text-primary-800 text-sm mb-1">Perlindungan Data HCS</div>
-          <p className="text-primary-700 text-sm">
+          <div className="font-bold text-slate-800 text-xs mb-0.5">Perlindungan Data HCS</div>
+          <p className="text-slate-500 text-xs leading-relaxed">
             Peta menampilkan jumlah catatan HCS per kabupaten/kota tanpa nama, UID, alamat, atau koordinat rumah pelanggan.
           </p>
         </div>

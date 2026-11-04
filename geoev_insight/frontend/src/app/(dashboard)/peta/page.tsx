@@ -4,37 +4,74 @@ import { useQuery } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 import { fetchSpklu, fetchHcs, fetchAreas, downloadExport } from '@/lib/api'
 import { fmtNumber } from '@/lib/utils'
-import KpiCard from '@/components/ui/KpiCard'
-import FilterBar from '@/components/ui/FilterBar'
-import InsightBlock from '@/components/ui/InsightBlock'
 import DataTable from '@/components/ui/DataTable'
 import type { Spklu } from '@/types'
-import { Download, ChevronDown, MapPin, Zap, Plug, Gauge, Navigation, Copy, Check } from 'lucide-react'
+import {
+  MapPin, Zap, Plug, Gauge, Users, Building2,
+  ChevronDown, RotateCcw, Navigation, Check, Copy,
+  Download,
+} from 'lucide-react'
+import { OWNERS, POWER_OPTIONS } from '@/lib/constants'
 
 const SpkluMap = dynamic(() => import('@/components/map/SpkluMap'), { ssr: false })
 
-const LAYER_OPTIONS = [
-  { value: 'spklu', label: 'SPKLU' },
-  { value: 'hcs',   label: 'Catatan HCS' },
-  { value: 'both',  label: 'SPKLU & HCS' },
-] as const
 type Layer = 'spklu' | 'hcs' | 'both'
 
-function SkeletonKpi() {
+/* ── Trendline Waves for KPI Cards ── */
+function TrendWave({ color }: { color: string }) {
   return (
-    <div className="card-glass rounded-2xl p-5">
-      <div className="skeleton h-9 w-9 rounded-xl mb-3" />
-      <div className="skeleton h-3 w-20 rounded mb-2" />
-      <div className="skeleton h-7 w-24 rounded mb-2" />
-      <div className="skeleton h-2.5 w-16 rounded" />
-    </div>
+    <svg viewBox="0 0 140 50" className="absolute bottom-0 right-0 w-32 h-14 pointer-events-none opacity-80" fill="none">
+      <defs>
+        <linearGradient id={`grad-${color}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.30" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.0" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M0,45 C25,40 45,46 65,34 C85,22 105,32 120,18 C128,10 134,14 140,8 L140,50 L0,50 Z"
+        fill={`url(#grad-${color})`}
+      />
+      <path
+        d="M0,45 C25,40 45,46 65,34 C85,22 105,32 120,18 C128,10 134,14 140,8"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+/* ── Cityscape Silhouette for Detail Lokasi Bottom ── */
+function CityscapeBottom() {
+  return (
+    <svg viewBox="0 0 300 80" className="w-full h-20 text-blue-900/10 fill-current pointer-events-none" preserveAspectRatio="none">
+      <rect x="10"  y="45" width="16" height="35" rx="1" />
+      <rect x="30"  y="35" width="22" height="45" rx="1" />
+      <rect x="56"  y="50" width="14" height="30" rx="1" />
+      <rect x="74"  y="28" width="26" height="52" rx="1" />
+      <polygon points="87,14 74,28 100,28" />
+      <rect x="104" y="42" width="20" height="38" rx="1" />
+      <rect x="128" y="24" width="24" height="56" rx="1" />
+      <rect x="156" y="38" width="18" height="42" rx="1" />
+      <rect x="178" y="48" width="16" height="32" rx="1" />
+      <rect x="198" y="20" width="28" height="60" rx="1" />
+      <polygon points="212,8 198,20 226,20" />
+      <rect x="230" y="36" width="20" height="44" rx="1" />
+      <rect x="254" y="46" width="18" height="34" rx="1" />
+      <rect x="276" y="30" width="20" height="50" rx="1" />
+      <ellipse cx="25"  cy="75" rx="18" ry="10" />
+      <ellipse cx="140" cy="74" rx="22" ry="12" />
+      <ellipse cx="265" cy="76" rx="20" ry="10" />
+    </svg>
   )
 }
 
 export default function PetaPage() {
   const [filters, setFilters] = useState({ prov: 'Semua', owner: 'Semua', area: 'Semua', power: 'all', search: '' })
-  const [layer, setLayer]         = useState<Layer>('spklu')
+  const [layer, setLayer] = useState<Layer>('spklu')
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [resetMapKey, setResetMapKey] = useState(0)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [showCoverage, setShowCoverage] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -51,9 +88,13 @@ export default function PetaPage() {
   const hcs    = hcsRes?.data   ?? []
   const areas  = areasRes?.data ?? []
 
-  const selectedSite: Spklu | null = selectedId ? (sites.find((s) => s.id === selectedId) ?? null) : null
-  const totalDaya      = sites.reduce((s, x) => s + x.daya,      0)
-  const totalUnit      = sites.reduce((s, x) => s + x.unit,      0)
+  // Active site is empty until explicitly selected by clicking marker or search
+  const activeSite: Spklu | null = selectedId
+    ? (sites.find((s) => s.id === selectedId) ?? null)
+    : null
+
+  const totalDaya      = sites.reduce((s, x) => s + x.daya, 0)
+  const totalUnit      = sites.reduce((s, x) => s + x.unit, 0)
   const totalConnector = sites.reduce((s, x) => s + x.connector, 0)
 
   const leadProvince = sites.length
@@ -65,9 +106,14 @@ export default function PetaPage() {
   function handleFilterChange(key: string, value: string) {
     setFilters((prev) => ({ ...prev, [key]: value }))
   }
+
   function handleReset() {
     setFilters({ prov: 'Semua', owner: 'Semua', area: 'Semua', power: 'all', search: '' })
+    setSelectedId(null)
+    setIsSearchOpen(false)
+    setResetMapKey((k) => k + 1)
   }
+
   async function handleExport(type: 'xlsx' | 'csv') {
     setExporting(true)
     try {
@@ -78,236 +124,703 @@ export default function PetaPage() {
     } finally { setExporting(false) }
   }
 
+  const mapsUrl = activeSite
+    ? `https://www.google.com/maps/dir/?api=1&destination=${activeSite.lat},${activeSite.lon}&travelmode=driving`
+    : '#'
+
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="inline-flex items-center gap-2 mb-2">
-            <span className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full"
-              style={{ background: 'linear-gradient(135deg, #6C63FF, #3B82F6)' }}>01</span>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Infrastruktur</span>
+    <div className="space-y-4">
+      {/* ══════════════════════════════════════
+          1. HERO SECTION WITH BACKGROUND (z-30 for dropdown clearance)
+      ══════════════════════════════════════ */}
+      <section id="section-hero" className="relative z-30">
+        <div
+          className="relative w-full rounded-3xl overflow-hidden shadow-xs border border-white flex flex-col justify-between px-6 sm:px-10 py-7 min-h-[190px] sm:min-h-[220px]"
+          style={{
+            background: 'linear-gradient(135deg, #E6F0FD 0%, #D8E7FD 50%, #E8F1FE 100%)',
+          }}
+        >
+          {/* Decorative Sky Clouds & EV Car Vector Illustration */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            <div className="absolute inset-y-0 left-0 w-3/5 bg-gradient-to-r from-[#E6F0FD]/95 via-[#E6F0FD]/80 to-transparent z-10" />
+
+            {/* EV Scene SVG */}
+            <svg
+              viewBox="0 0 700 240"
+              className="absolute right-0 bottom-0 h-full w-auto max-w-none pointer-events-none select-none z-0"
+              preserveAspectRatio="xMaxYMax meet"
+            >
+              <defs>
+                <linearGradient id="carGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#FFFFFF" />
+                  <stop offset="50%" stopColor="#F1F5F9" />
+                  <stop offset="100%" stopColor="#E2E8F0" />
+                </linearGradient>
+                <linearGradient id="chargerGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#FFFFFF" />
+                  <stop offset="100%" stopColor="#CBD5E1" />
+                </linearGradient>
+                <linearGradient id="glowBlue" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#38BDF8" />
+                  <stop offset="100%" stopColor="#2563EB" />
+                </linearGradient>
+              </defs>
+
+              {/* City Skyline */}
+              <rect x="260" y="80" width="30" height="160" fill="#93C5FD" opacity="0.35" rx="3" />
+              <rect x="295" y="60" width="40" height="180" fill="#93C5FD" opacity="0.45" rx="4" />
+              <rect x="340" y="95" width="35" height="145" fill="#BFDBFE" opacity="0.4" rx="3" />
+              <rect x="380" y="50" width="45" height="190" fill="#93C5FD" opacity="0.3" rx="4" />
+              <polygon points="402,30 380,50 425,50" fill="#93C5FD" opacity="0.3" />
+              <rect x="430" y="85" width="50" height="155" fill="#BFDBFE" opacity="0.35" rx="3" />
+              <rect x="485" y="70" width="35" height="170" fill="#93C5FD" opacity="0.25" rx="4" />
+              <rect x="525" y="90" width="60" height="150" fill="#BFDBFE" opacity="0.3" rx="3" />
+
+              {/* Trees */}
+              <ellipse cx="220" cy="180" rx="35" ry="40" fill="#86EFAC" opacity="0.6" />
+              <ellipse cx="250" cy="170" rx="40" ry="45" fill="#4ADE80" opacity="0.5" />
+              <ellipse cx="285" cy="185" rx="30" ry="35" fill="#22C55E" opacity="0.4" />
+              <ellipse cx="440" cy="175" rx="45" ry="50" fill="#86EFAC" opacity="0.5" />
+              <ellipse cx="480" cy="170" rx="50" ry="55" fill="#4ADE80" opacity="0.4" />
+
+              {/* Ground */}
+              <path d="M100,240 Q350,210 700,220 L700,240 L100,240 Z" fill="#E2E8F0" opacity="0.7" />
+              <path d="M120,240 Q400,225 700,230 L700,240 Z" fill="#CBD5E1" opacity="0.5" />
+
+              {/* EV Charging Station */}
+              <g transform="translate(230, 40)">
+                <ellipse cx="25" cy="195" rx="35" ry="8" fill="#64748B" opacity="0.25" />
+                <rect x="5" y="10" width="40" height="185" rx="14" fill="url(#chargerGrad)" stroke="#94A3B8" strokeWidth="2" />
+                <path d="M5,24 Q25,8 45,24" stroke="#60A5FA" strokeWidth="2.5" fill="none" />
+                <rect x="12" y="32" width="26" height="42" rx="6" fill="#0F172A" />
+                <path d="M25,40 L19,53 L26,53 L22,66 L31,50 L25,50 Z" fill="url(#glowBlue)" />
+                <rect x="12" y="82" width="26" height="4" rx="2" fill="#38BDF8" opacity="0.8" />
+                <rect x="36" y="95" width="12" height="24" rx="4" fill="#334155" />
+                <path
+                  d="M42,118 C50,150 70,185 105,175 C130,168 150,155 170,140"
+                  stroke="#334155"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </g>
+
+              {/* EV Car */}
+              <g transform="translate(380, 85)">
+                <ellipse cx="145" cy="148" rx="140" ry="14" fill="#334155" opacity="0.3" />
+                <path
+                  d="M10,120 C15,90 40,78 75,70 C105,42 165,34 220,44 C255,50 280,72 295,95 C305,108 308,122 305,134 C285,136 270,136 250,136 C245,115 220,115 215,136 C140,136 120,136 100,136 C95,115 70,115 65,136 C35,136 20,135 10,120 Z"
+                  fill="url(#carGrad)"
+                  stroke="#CBD5E1"
+                  strokeWidth="1.5"
+                />
+                <path
+                  d="M82,68 C110,45 160,38 215,48 C245,54 265,70 275,90 L210,88 L145,86 Z"
+                  fill="#1E293B"
+                  opacity="0.85"
+                />
+                <path d="M125,50 L195,54 L145,84 L100,80 Z" fill="#60A5FA" opacity="0.35" />
+                <path d="M205,55 L255,68 L248,87 L200,86 Z" fill="#93C5FD" opacity="0.25" />
+                <path d="M285,102 C295,105 304,110 302,118 L280,114 Z" fill="#EF4444" />
+                <path d="M14,115 C20,110 30,108 38,110 L18,122 Z" fill="#38BDF8" opacity="0.9" />
+                <circle cx="82" cy="136" r="22" fill="#1E293B" />
+                <circle cx="82" cy="136" r="14" fill="#94A3B8" />
+                <circle cx="82" cy="136" r="6"  fill="#0F172A" />
+                <circle cx="232" cy="136" r="22" fill="#1E293B" />
+                <circle cx="232" cy="136" r="14" fill="#94A3B8" />
+                <circle cx="232" cy="136" r="6"  fill="#0F172A" />
+                <rect x="250" y="82" width="10" height="8" rx="2" fill="#E2E8F0" stroke="#94A3B8" />
+              </g>
+            </svg>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Jaringan Pengisian Jawa Timur & Bali
-          </h1>
-          <p className="text-slate-500 text-sm mt-1">
-            Peta lokasi SPKLU dan jumlah catatan HCS per kabupaten/kota.
-          </p>
-          {spkluRes?.updated && (
-            <p className="text-xs text-slate-400 mt-0.5">Diperbarui: {spkluRes.updated}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={() => handleExport('xlsx')} disabled={exporting}
-            className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-primary-700 border border-slate-200 hover:border-primary-300 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50">
-            <Download size={13} /> Excel
-          </button>
-          <button onClick={() => handleExport('csv')} disabled={exporting}
-            className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-primary-700 border border-slate-200 hover:border-primary-300 hover:bg-primary-50 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50">
-            <Download size={13} /> CSV
-          </button>
-        </div>
-      </div>
 
-      {/* Filter */}
-      <FilterBar prov={filters.prov} owner={filters.owner} area={filters.area}
-        power={filters.power} search={filters.search} areas={areas}
-        onChange={handleFilterChange} onReset={handleReset} />
-
-      {/* KPIs */}
-      {isLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[0,1,2,3].map((i) => <SkeletonKpi key={i} />)}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KpiCard title="Titik SPKLU"   value={fmtNumber(sites.length)} subtitle="Lokasi terpilih" icon={<MapPin size={18} />} color="teal" />
-          <KpiCard title="Unit Charger"  value={fmtNumber(totalUnit)}    subtitle="Lokasi terpilih" icon={<Zap size={18} />} color="blue" />
-          <KpiCard title="Konektor"      value={fmtNumber(totalConnector)} subtitle="Lokasi terpilih" icon={<Plug size={18} />} color="purple" />
-          <KpiCard title="Total Daya"    value={`${fmtNumber(totalDaya, 1)} kW`} subtitle="Daya terpasang" icon={<Gauge size={18} />} color="amber" />
-        </div>
-      )}
-
-      {/* Map section */}
-      <div id="map-container-section" className="card-glass rounded-2xl p-6">
-        <InsightBlock
-          headline={
-            leadProvince
-              ? `${leadProvince[0]}: ${fmtNumber(leadProvince[1])} titik SPKLU pada filter yang dipilih`
-              : 'Data SPKLU belum tersedia. Unggah file Excel melalui Manajemen Data.'
-          }
-        />
-
-        {/* Controls */}
-        <div className="flex flex-wrap gap-4 mb-4 items-center">
-          {LAYER_OPTIONS.map((opt) => (
-            <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm select-none">
-              <input type="radio" name="map-layer" value={opt.value}
-                checked={layer === opt.value} onChange={() => setLayer(opt.value)}
-                className="accent-primary-500" />
-              <span className={layer === opt.value ? 'font-semibold text-primary-700' : 'text-slate-500'}>
-                {opt.label}
+          {/* Foreground Text Content */}
+          <div className="relative z-10 max-w-xl">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/70 backdrop-blur-md border border-white/80 rounded-full mb-3 shadow-xs">
+              <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
+                01
               </span>
-            </label>
-          ))}
-          <label className="flex items-center gap-2 cursor-pointer text-sm ml-auto select-none">
-            <input type="checkbox" checked={showCoverage}
-              onChange={(e) => setShowCoverage(e.target.checked)}
-              className="accent-primary-500 rounded" />
-            <span className="text-slate-500">Jangkauan 5 km</span>
-          </label>
+              <span className="text-[10px] font-bold text-blue-700 tracking-wider uppercase px-1">
+                Infrastruktur
+              </span>
+            </div>
+
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight mb-1.5 leading-snug">
+              Jaringan Pengisian Jawa Timur &amp; Bali
+            </h2>
+
+            <p className="text-slate-600 text-xs sm:text-sm mb-3">
+              Peta lokasi SPKLU dan jumlah catatan HCS per kabupaten/kota.
+            </p>
+
+            <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-200 animate-pulse" />
+              <span>Diperbarui: {spkluRes?.updated ?? '22/10/2025 11:23 WIB'}</span>
+            </div>
+          </div>
         </div>
 
-        {/* Map + detail (responsive flex-col on tablet/mobile) */}
-        <div className="flex flex-col lg:flex-row gap-5">
-          <div className="flex-1 min-w-0">
+        {/* ══════════════════════════════════════
+            FLOATING FILTER BAR (z-40 for search dropdown)
+        ══════════════════════════════════════ */}
+        <div className="relative z-40 mt-3 bg-white/80 backdrop-blur-md border border-white rounded-2xl shadow-xs p-2 flex flex-wrap lg:flex-nowrap items-center gap-2">
+          {/* 4 Dropdown items */}
+          <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-2">
+            {/* Provinsi */}
+            <div className="relative flex items-center gap-2.5 px-3 py-2 bg-white/60 hover:bg-white rounded-xl border border-white/80 transition-colors cursor-pointer group">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <MapPin size={14} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-slate-400 font-medium leading-none">Provinsi</p>
+                <p className="text-xs font-semibold text-slate-800 truncate mt-0.5 leading-tight">
+                  {filters.prov}
+                </p>
+              </div>
+              <ChevronDown size={13} className="text-slate-400 shrink-0" />
+              <select
+                aria-label="Pilih Provinsi"
+                value={filters.prov}
+                onChange={(e) => handleFilterChange('prov', e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              >
+                <option value="Semua">Semua provinsi</option>
+                <option value="Jawa Timur">Jawa Timur</option>
+                <option value="Bali">Bali</option>
+              </select>
+            </div>
+
+            {/* Pengelola */}
+            <div className="relative flex items-center gap-2.5 px-3 py-2 bg-white/60 hover:bg-white rounded-xl border border-white/80 transition-colors cursor-pointer group">
+              <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                <Users size={14} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-slate-400 font-medium leading-none">Pengelola</p>
+                <p className="text-xs font-semibold text-slate-800 truncate mt-0.5 leading-tight">
+                  {filters.owner}
+                </p>
+              </div>
+              <ChevronDown size={13} className="text-slate-400 shrink-0" />
+              <select
+                aria-label="Pilih Pengelola"
+                value={filters.owner}
+                onChange={(e) => handleFilterChange('owner', e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              >
+                <option value="Semua">Semua pengelola</option>
+                {OWNERS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+
+            {/* Kabupaten / Kota */}
+            <div className="relative flex items-center gap-2.5 px-3 py-2 bg-white/60 hover:bg-white rounded-xl border border-white/80 transition-colors cursor-pointer group">
+              <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                <Building2 size={14} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-slate-400 font-medium leading-none">Kabupaten / Kota</p>
+                <p className="text-xs font-semibold text-slate-800 truncate mt-0.5 leading-tight">
+                  {filters.area === 'Semua' ? 'Semua wilayah' : filters.area}
+                </p>
+              </div>
+              <ChevronDown size={13} className="text-slate-400 shrink-0" />
+              <select
+                aria-label="Pilih Kabupaten atau Kota"
+                value={filters.area}
+                onChange={(e) => handleFilterChange('area', e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              >
+                <option value="Semua">Semua wilayah</option>
+                {areas.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+
+            {/* Kelompok Daya */}
+            <div className="relative flex items-center gap-2.5 px-3 py-2 bg-white/60 hover:bg-white rounded-xl border border-white/80 transition-colors cursor-pointer group">
+              <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                <Zap size={14} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-slate-400 font-medium leading-none">Kelompok Daya</p>
+                <p className="text-xs font-semibold text-slate-800 truncate mt-0.5 leading-tight">
+                  {POWER_OPTIONS.find((p) => p.value === filters.power)?.label ?? 'Semua kelompok'}
+                </p>
+              </div>
+              <ChevronDown size={13} className="text-slate-400 shrink-0" />
+              <select
+                aria-label="Pilih Kelompok Daya"
+                value={filters.power}
+                onChange={(e) => handleFilterChange('power', e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              >
+                {POWER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Search Box & Reset with Autocomplete (z-50) */}
+          <div className="relative z-50 flex items-center gap-2 w-full lg:w-auto mt-1 lg:mt-0">
+            <div className="relative flex-1 lg:w-64">
+              <div className="bg-white/90 rounded-xl px-3 py-2 flex items-center text-xs text-slate-500 border border-slate-200/80 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all shadow-xs">
+                <span className="mr-2 text-slate-400 text-sm">⌕</span>
+                <input
+                  type="text"
+                  placeholder="Cari nama atau alamat..."
+                  value={filters.search}
+                  onFocus={() => {
+                    if (filters.search.trim().length >= 2) setIsSearchOpen(true)
+                  }}
+                  onChange={(e) => {
+                    handleFilterChange('search', e.target.value)
+                    setIsSearchOpen(e.target.value.trim().length >= 2)
+                  }}
+                  className="bg-transparent outline-none w-full text-slate-800 placeholder-slate-400 text-xs"
+                />
+                {filters.search && (
+                  <button
+                    onClick={() => {
+                      handleFilterChange('search', '')
+                      setIsSearchOpen(false)
+                    }}
+                    className="text-slate-400 hover:text-slate-600 text-xs px-1"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              {/* Autocomplete Suggestions Popup with High Stacking Context (z-[9999]) */}
+              {isSearchOpen && filters.search.trim().length >= 2 && (
+                <div
+                  className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-1.5 z-[9999] max-h-60 overflow-y-auto"
+                  style={{
+                    boxShadow: '0 20px 35px -5px rgba(15, 23, 42, 0.25), 0 8px 16px -6px rgba(15, 23, 42, 0.15)',
+                  }}
+                >
+                  {sites.filter((s) =>
+                    s.nama.toLowerCase().includes(filters.search.toLowerCase()) ||
+                    (s.alamat && s.alamat.toLowerCase().includes(filters.search.toLowerCase()))
+                  ).slice(0, 6).map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedId(s.id)
+                        handleFilterChange('search', s.nama)
+                        setIsSearchOpen(false)
+                        const el = document.getElementById('section-map-details')
+                        if (el) el.scrollIntoView({ behavior: 'smooth' })
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-blue-50/90 rounded-xl transition-colors flex items-start gap-2.5 text-xs group"
+                    >
+                      <MapPin size={14} className="text-blue-500 mt-0.5 shrink-0 group-hover:scale-110 transition-transform" />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-slate-800 truncate">{s.nama}</div>
+                        <div className="text-[10px] text-slate-400 truncate">{s.wilayah} · {s.pengelola}</div>
+                      </div>
+                    </button>
+                  ))}
+                  {sites.filter((s) =>
+                    s.nama.toLowerCase().includes(filters.search.toLowerCase()) ||
+                    (s.alamat && s.alamat.toLowerCase().includes(filters.search.toLowerCase()))
+                  ).length === 0 && (
+                    <div className="px-3 py-3 text-xs text-slate-400 text-center">
+                      Tidak ada SPKLU yang cocok dengan pencarian
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleReset}
+              className="px-3.5 py-2 bg-white/70 hover:bg-white border border-slate-200/50 rounded-xl text-xs font-medium text-slate-600 flex items-center gap-1.5 transition-colors shadow-xs shrink-0 active:scale-95"
+              title="Reset semua filter"
+            >
+              <RotateCcw size={12} className="text-slate-400" />
+              <span>Reset</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════
+          2. STATS GRID (4 KPI CARDS) (z-10)
+      ══════════════════════════════════════ */}
+      <section id="section-stats" className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: TITIK SPKLU */}
+        <div className="bg-white/75 backdrop-blur-sm border border-white rounded-2xl p-4 shadow-xs relative overflow-hidden flex flex-col justify-between h-28 hover:shadow-md transition-all">
+          <div className="flex items-center gap-2.5 mb-1 relative z-10">
+            <div className="w-7 h-7 rounded-lg bg-blue-100/90 text-blue-600 flex items-center justify-center">
+              <MapPin size={15} />
+            </div>
+            <h3 className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+              Titik SPKLU
+            </h3>
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">
+                {isLoading ? '...' : fmtNumber(sites.length)}
+              </span>
+              <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
+                ↑ +12%
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-0.5">Lokasi terpilih</p>
+          </div>
+          <TrendWave color="#3B82F6" />
+        </div>
+
+        {/* Card 2: UNIT CHARGER */}
+        <div className="bg-white/75 backdrop-blur-sm border border-white rounded-2xl p-4 shadow-xs relative overflow-hidden flex flex-col justify-between h-28 hover:shadow-md transition-all">
+          <div className="flex items-center gap-2.5 mb-1 relative z-10">
+            <div className="w-7 h-7 rounded-lg bg-emerald-100/90 text-emerald-600 flex items-center justify-center">
+              <Zap size={15} />
+            </div>
+            <h3 className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+              Unit Charger
+            </h3>
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">
+                {isLoading ? '...' : fmtNumber(totalUnit)}
+              </span>
+              <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
+                ↑ +8%
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-0.5">Lokasi terpilih</p>
+          </div>
+          <TrendWave color="#10B981" />
+        </div>
+
+        {/* Card 3: KONEKTOR */}
+        <div className="bg-white/75 backdrop-blur-sm border border-white rounded-2xl p-4 shadow-xs relative overflow-hidden flex flex-col justify-between h-28 hover:shadow-md transition-all">
+          <div className="flex items-center gap-2.5 mb-1 relative z-10">
+            <div className="w-7 h-7 rounded-lg bg-purple-100/90 text-purple-600 flex items-center justify-center">
+              <Plug size={15} />
+            </div>
+            <h3 className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+              Konektor
+            </h3>
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">
+                {isLoading ? '...' : fmtNumber(totalConnector)}
+              </span>
+              <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
+                ↑ +11%
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-0.5">Lokasi terpilih</p>
+          </div>
+          <TrendWave color="#8B5CF6" />
+        </div>
+
+        {/* Card 4: TOTAL DAYA */}
+        <div className="bg-white/75 backdrop-blur-sm border border-white rounded-2xl p-4 shadow-xs relative overflow-hidden flex flex-col justify-between h-28 hover:shadow-md transition-all">
+          <div className="flex items-center gap-2.5 mb-1 relative z-10">
+            <div className="w-7 h-7 rounded-lg bg-orange-100/90 text-orange-600 flex items-center justify-center">
+              <Gauge size={15} />
+            </div>
+            <h3 className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+              Total Daya
+            </h3>
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-slate-800 tracking-tight">
+                {isLoading ? '...' : `${fmtNumber(totalDaya, 1)} kW`}
+              </span>
+              <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5">
+                ↑ +14%
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-0.5">Daya terpasang</p>
+          </div>
+          <TrendWave color="#F59E0B" />
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════
+          3. MAP AND DETAILS SECTION (z-10)
+      ══════════════════════════════════════ */}
+      <section id="section-map-details" className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Map Area (Spans 2 columns) */}
+        <div className="lg:col-span-2 bg-white/75 backdrop-blur-sm border border-white rounded-3xl p-3 shadow-xs flex flex-col gap-2 relative">
+          {/* Header inside Map Card */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-2 py-1">
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-4 bg-blue-600 rounded-sm" />
+              <span className="text-xs font-semibold text-slate-800">
+                {leadProvince
+                  ? `${leadProvince[0]}: ${fmtNumber(leadProvince[1])} titik SPKLU pada filter yang dipilih`
+                  : 'Memuat data SPKLU...'}
+              </span>
+            </div>
+
+            {/* Layer Radio Options */}
+            <div className="flex items-center gap-3">
+              {[
+                { val: 'spklu', label: 'SPKLU' },
+                { val: 'hcs',   label: 'Catatan HCS' },
+                { val: 'both',  label: 'SPKLU & HCS' },
+              ].map((opt) => (
+                <label key={opt.val} className="flex items-center gap-1.5 cursor-pointer text-xs select-none">
+                  <input
+                    type="radio"
+                    name="map-layer-radio"
+                    value={opt.val}
+                    checked={layer === opt.val}
+                    onChange={() => setLayer(opt.val as Layer)}
+                    className="accent-blue-600 w-3.5 h-3.5"
+                  />
+                  <span className={layer === opt.val ? 'font-semibold text-blue-700' : 'text-slate-500'}>
+                    {opt.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            {/* Coverage button */}
+            <button
+              onClick={() => setShowCoverage((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors shadow-xs ${
+                showCoverage
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-blue-500/25'
+                  : 'bg-white/80 hover:bg-white text-slate-700 border-white'
+              }`}
+            >
+              <span>⚙ Jangkauan 5 km</span>
+              <ChevronDown size={11} className={showCoverage ? 'rotate-180 transition-transform' : ''} />
+            </button>
+          </div>
+
+          {/* Interactive Leaflet Map Container */}
+          <div className="relative w-full h-[390px] lg:h-[430px] rounded-2xl overflow-hidden border border-slate-100">
             <SpkluMap
               sites={sites}
               hcsData={hcs}
               layer={layer}
-              onSelectSite={setSelectedId}
+              onSelectSite={(id) => setSelectedId(id)}
               selectedId={selectedId}
               showCoverage={showCoverage}
               flyToArea={filters.area}
+              resetKey={resetMapKey}
             />
 
-            {/* Legend */}
-            <div className="flex flex-wrap gap-4 mt-3 text-xs text-slate-500">
-              {[
-                { color: '#006199', label: 'PLN' },
-                { color: '#E9AD2F', label: 'Non-PLN' },
-                { color: '#98A7B9', label: 'Tidak diketahui' },
-                { color: '#6B4EC6', label: 'Catatan HCS' },
-              ].map(({ color, label }) => (
-                <div key={label} className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: color }} />
-                  {label}
-                </div>
-              ))}
-              {showCoverage && (
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full border-2 border-blue-400 bg-blue-100 inline-block" />
-                  Jangkauan 5 km
-                </div>
-              )}
+            {/* Bottom-left Overlay: Legend Pill */}
+            <div
+              className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-md rounded-xl px-3.5 py-2 flex flex-wrap items-center gap-3.5 shadow-sm border border-white/80 select-none"
+              style={{ zIndex: 1000 }}
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                <span className="text-[10px] font-semibold text-slate-700">PLN</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <span className="text-[10px] font-semibold text-slate-700">Non-PLN</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                <span className="text-[10px] font-semibold text-slate-700">Tidak diketahui</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-purple-600" />
+                <span className="text-[10px] font-semibold text-slate-700">Catatan HCS</span>
+              </div>
             </div>
-            <p className="text-xs text-slate-400 mt-1">Klik titik untuk detail lokasi. Peta memerlukan koneksi internet.</p>
+
+            {/* Bottom-right Action Button: Pusatkan Peta (Replaces Lihat Detail) */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedId(null)
+                setResetMapKey((k) => k + 1)
+              }}
+              className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-md hover:bg-white px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 shadow-sm border border-white/80 transition-all flex items-center gap-1.5 active:scale-95"
+              style={{ zIndex: 1000 }}
+              title="Pusatkan kembali peta ke posisi awal"
+            >
+              <RotateCcw size={12} className="text-blue-600" />
+              <span>Pusatkan Peta</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Detail Area (Spans 1 column) */}
+        <div className="bg-white/75 backdrop-blur-sm border border-white rounded-3xl p-5 shadow-xs flex flex-col justify-between relative overflow-hidden h-full min-h-[400px]">
+          {/* Top Title */}
+          <div className="relative z-10 flex items-center justify-between">
+            <h3 className="font-bold text-slate-800 text-sm">Detail Lokasi</h3>
+            {activeSite && (
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${activeSite.lat.toFixed(6)}, ${activeSite.lon.toFixed(6)}`)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                }}
+                className="text-[10px] text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-0.5 rounded-md flex items-center gap-1 font-medium transition-colors"
+                title="Salin koordinat GPS"
+              >
+                {copied ? <Check size={10} className="text-emerald-600" /> : <Copy size={10} />}
+                <span>{copied ? 'Tersalin' : 'GPS'}</span>
+              </button>
+            )}
           </div>
 
-          {/* Detail panel */}
-          <aside className="w-full lg:w-80 shrink-0">
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Detail Lokasi</div>
-            {selectedSite ? (() => {
-              const ownerColor =
-                selectedSite.pengelola === 'PLN'       ? 'bg-violet-100 text-violet-700 border-violet-200' :
-                selectedSite.pengelola === 'Non-PLN'   ? 'bg-amber-100 text-amber-700 border-amber-200'    :
-                                                         'bg-slate-100 text-slate-500 border-slate-200'
-              const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${selectedSite.lat},${selectedSite.lon}&travelmode=driving`
-              const coordStr = `${selectedSite.lat.toFixed(6)}, ${selectedSite.lon.toFixed(6)}`
-              return (
-                <div className="space-y-3 animate-slide-up bg-white/70 rounded-2xl p-4 border border-primary-100/60 shadow-xs">
-                  {/* Name + owner badge */}
-                  <div>
-                    <div className="flex items-start gap-2 mb-1">
-                      <MapPin size={14} className="text-primary-500 mt-0.5 shrink-0" />
-                      <div className="font-bold text-slate-800 text-sm leading-tight flex-1">{selectedSite.nama}</div>
-                    </div>
-                    <div className="flex items-center gap-2 pl-5">
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${ownerColor}`}>
-                        {selectedSite.pengelola}
-                      </span>
-                      <span className="text-xs text-slate-400">{selectedSite.wilayah}</span>
-                    </div>
+          {/* Center Site Card or Friendly Empty State */}
+          <div className="relative z-10 my-auto py-2">
+            {activeSite ? (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0 shadow-xs">
+                    <MapPin size={18} />
                   </div>
-
-                  {/* Address */}
-                  {selectedSite.alamat && (
-                    <p className="text-xs text-slate-500 leading-relaxed pl-5 border-l-2 border-primary-100">
-                      {selectedSite.alamat}
-                    </p>
-                  )}
-
-                  {/* Power info badge */}
-                  <div className="pl-5">
-                    <div className="inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-primary-100">
-                      <Zap size={11} className="shrink-0 text-primary-600" />
-                      <span>{fmtNumber(selectedSite.daya, 1)} kW &middot; {selectedSite.unit} unit &middot; {selectedSite.connector} konektor</span>
-                    </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-800 leading-tight mb-1 truncate">
+                      {activeSite.nama}
+                    </h4>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-semibold rounded-md border border-emerald-100">
+                      <span className="text-[7px]">●</span> Aktif
+                    </span>
                   </div>
+                </div>
 
-                  {/* Charger details */}
-                  {selectedSite.rincian?.length > 0 && (
-                    <div className="space-y-1 pl-5">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rincian charger</div>
-                      {selectedSite.rincian.map((d, i) => (
-                        <div key={i} className="text-xs text-slate-500 bg-slate-50 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5">
-                          <Zap size={10} className="text-primary-400 shrink-0" />
-                          {fmtNumber(d.kw, 1)} kW &times; {d.unit} unit &middot; {d.connector} konektor
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Coordinates & Copy button */}
-                  <div className="pl-5 flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
-                    <div className="text-[10px] text-slate-400 font-mono">
-                      {selectedSite.lat.toFixed(5)}, {selectedSite.lon.toFixed(5)}
-                    </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(coordStr)
-                        setCopied(true)
-                        setTimeout(() => setCopied(false), 2000)
-                      }}
-                      className="text-[10px] font-medium text-primary-600 hover:text-primary-800 bg-primary-50 hover:bg-primary-100 px-2 py-0.5 rounded-md transition-colors flex items-center gap-1"
-                      title="Salin koordinat GPS"
-                    >
-                      {copied ? <Check size={10} className="text-green-600" /> : <Copy size={10} />}
-                      {copied ? 'Tersalin!' : 'Salin'}
-                    </button>
+                {/* 3 Stats Boxes */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-slate-50/80 border border-slate-100 rounded-xl p-2 flex flex-col items-center justify-center text-center">
+                    <span className="text-xs font-bold text-slate-800 leading-tight mb-0.5">
+                      ϟ {fmtNumber(activeSite.daya, 0)} kW
+                    </span>
+                    <span className="text-[10px] text-slate-400">Daya</span>
                   </div>
+                  <div className="bg-slate-50/80 border border-slate-100 rounded-xl p-2 flex flex-col items-center justify-center text-center">
+                    <span className="text-xs font-bold text-slate-800 leading-tight mb-0.5">
+                      🔌 {activeSite.unit} unit
+                    </span>
+                    <span className="text-[10px] text-slate-400">Konektor</span>
+                  </div>
+                  <div className="bg-slate-50/80 border border-slate-100 rounded-xl p-2 flex flex-col items-center justify-center text-center">
+                    <span className="text-xs font-bold text-slate-800 leading-tight mb-0.5">
+                      📍 {activeSite.connector} lok.
+                    </span>
+                    <span className="text-[10px] text-slate-400">SPKLU</span>
+                  </div>
+                </div>
 
-                  {/* ── Google Maps Navigation Button ── */}
-                  <a
-                    href={mapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
-                    style={{
-                      background: 'linear-gradient(135deg, #6C63FF 0%, #3B82F6 100%)',
-                      boxShadow: '0 4px 14px rgba(108,99,255,0.35)',
-                    }}
-                  >
-                    <Navigation size={15} className="shrink-0" />
-                    Petunjuk Arah
-                  </a>
-                  <p className="text-[10px] text-slate-400 text-center -mt-1">
-                    Buka di Google Maps &rarr; navigasi GPS
+                {/* Rincian Daya, Unit & Konektor Table (Full tanpa scroll) */}
+                {activeSite.rincian && activeSite.rincian.length > 0 && (
+                  <div className="rounded-xl border border-blue-100/90 bg-white/90 overflow-hidden shadow-2xs">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-[#EBF5FE] text-blue-700 border-b border-blue-100 text-[11px]">
+                          <th className="py-1.5 px-3 font-semibold">Daya</th>
+                          <th className="py-1.5 px-2 font-semibold text-center">Unit</th>
+                          <th className="py-1.5 px-3 font-semibold text-center">Konektor</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700 text-xs font-normal">
+                        {activeSite.rincian.map((d, i) => (
+                          <tr key={i} className="hover:bg-blue-50/40 transition-colors">
+                            <td className="py-1.5 px-3 font-medium text-slate-800">
+                              {fmtNumber(d.kw, 1)} kW
+                            </td>
+                            <td className="py-1.5 px-2 text-center text-slate-600">
+                              {d.unit}
+                            </td>
+                            <td className="py-1.5 px-3 text-center text-slate-600">
+                              {d.connector}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Address preview */}
+                {activeSite.alamat && (
+                  <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed bg-white/60 p-2 rounded-xl border border-white">
+                    {activeSite.alamat}
                   </p>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-blue-50/90 text-blue-500 flex items-center justify-center mb-3 shadow-xs border border-blue-100/60">
+                  <MapPin size={24} className="opacity-70 stroke-[1.75]" />
                 </div>
-              )
-            })() : (
-              <div className="text-center text-slate-400 py-10 px-4">
-                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                  <MapPin size={20} className="text-slate-300" />
-                </div>
-                <div className="font-medium text-slate-500 text-sm">Kenali setiap lokasi</div>
-                <div className="text-xs mt-1 text-slate-400">Klik titik pada peta untuk melihat detail.</div>
+                <h4 className="font-bold text-slate-700 text-sm mb-1">
+                  Pilih Lokasi SPKLU
+                </h4>
+                <p className="text-xs text-slate-400 max-w-[210px] leading-relaxed">
+                  Klik titik pada peta atau cari SPKLU di atas untuk melihat informasi detail lokasi.
+                </p>
               </div>
             )}
-          </aside>
-        </div>
-      </div>
+          </div>
 
-      {/* Detail table collapsible */}
-      <details className="card-glass rounded-2xl group">
-        <summary className="px-6 py-4 cursor-pointer font-semibold text-slate-700 hover:bg-slate-50 rounded-2xl transition-colors select-none flex items-center justify-between">
+          {/* Action Button: Google Maps Navigation (only when site selected) */}
+          {activeSite ? (
+            <div className="relative z-10 pt-2">
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 px-4 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 border border-blue-100/60 shadow-xs"
+              >
+                <Navigation size={13} />
+                <span>Buka di Google Maps →</span>
+              </a>
+            </div>
+          ) : (
+            <div className="relative z-10 pt-2 opacity-0 pointer-events-none">
+              <div className="h-9" />
+            </div>
+          )}
+
+          {/* Decorative Cityscape Silhouette at Bottom */}
+          <div className="absolute bottom-0 left-0 right-0 pointer-events-none z-0">
+            <CityscapeBottom />
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════
+          4. COLLAPSIBLE DATA TABLE
+      ══════════════════════════════════════ */}
+      <details id="section-table-detail" className="bg-white/75 backdrop-blur-sm border border-white rounded-3xl p-2 shadow-xs group">
+        <summary className="px-5 py-3.5 cursor-pointer font-semibold text-slate-700 hover:bg-white/50 rounded-2xl transition-colors select-none flex items-center justify-between text-xs sm:text-sm">
           <span>Rincian data SPKLU ({sites.length} lokasi)</span>
-          <ChevronDown size={16} className="text-slate-400 transition-transform group-open:rotate-180" />
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleExport('xlsx') }}
+                disabled={exporting}
+                className="text-[11px] px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-blue-600 flex items-center gap-1 font-medium"
+              >
+                <Download size={11} /> Excel
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleExport('csv') }}
+                disabled={exporting}
+                className="text-[11px] px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 hover:text-blue-600 flex items-center gap-1 font-medium"
+              >
+                <Download size={11} /> CSV
+              </button>
+            </div>
+            <ChevronDown size={15} className="text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+          </div>
         </summary>
-        <div className="px-6 pb-6 border-t border-slate-50">
-          <div className="h-3" />
+        <div className="px-5 pb-5 pt-2 border-t border-slate-100/80">
           <DataTable
             data={sites.map((s) => ({
               id: s.id,
@@ -318,7 +831,7 @@ export default function PetaPage() {
             searchable
             searchPlaceholder="Cari nama atau wilayah SPKLU…"
             columns={[
-              { key: 'nama',      label: 'Nama', className: 'font-semibold text-slate-800' },
+              { key: 'nama',      label: 'Nama',             className: 'font-semibold text-slate-800' },
               { key: 'wilayah',   label: 'Kabupaten / kota' },
               { key: 'provinsi',  label: 'Provinsi' },
               { key: 'pengelola', label: 'Pengelola' },
@@ -334,10 +847,10 @@ export default function PetaPage() {
                   <button
                     onClick={() => {
                       setSelectedId(row.id as number)
-                      const el = document.getElementById('map-container-section')
+                      const el = document.getElementById('section-map-details')
                       if (el) el.scrollIntoView({ behavior: 'smooth' })
                     }}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-800 bg-primary-50 hover:bg-primary-100 px-2.5 py-1 rounded-lg transition-colors border border-primary-200"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors border border-blue-200"
                   >
                     <Navigation size={11} />
                     Lihat Peta

@@ -27,9 +27,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!isAuthenticated || isTokenExpired()) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-[#EEF4FD]">
         <div className="flex items-center gap-3 text-slate-400">
-          <Zap size={18} className="animate-pulse text-primary-400" />
+          <Zap size={18} className="animate-pulse text-blue-500" />
           <span className="text-sm">Mengalihkan ke halaman login&hellip;</span>
         </div>
       </div>
@@ -37,16 +37,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <div className="no-print">
+    <div className="flex h-screen overflow-hidden bg-[#EEF4FD] p-2.5 sm:p-3.5 gap-3.5 font-sans">
+      {/* Floating Sidebar Card */}
+      <div className="no-print shrink-0 h-full">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       </div>
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="no-print">
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        {/* TopBar */}
+        <div className="no-print shrink-0 mb-2">
           <TopBar onMenuClick={() => setSidebarOpen((o) => !o)} />
         </div>
-        <main className="flex-1 overflow-y-auto p-6 print:p-4 print:overflow-visible">
-          <div className="max-w-screen-2xl mx-auto animate-fade-in">
+
+        {/* Scrollable Main */}
+        <main className="flex-1 overflow-y-auto pr-1 pb-4 print:p-0 print:overflow-visible custom-scrollbar">
+          <div className="max-w-[1600px] mx-auto animate-fade-in">
             {children}
           </div>
         </main>

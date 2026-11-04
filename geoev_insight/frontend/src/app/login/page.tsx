@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { loginApi } from '@/lib/api'
-import { Eye, EyeOff, Zap, User, Lock } from 'lucide-react'
+import { Eye, EyeOff, User, Lock } from 'lucide-react'
+import PlnIcon from '@/components/ui/PlnIcon'
 
 export default function LoginPage() {
   const [username, setUsername] = useState('')
@@ -93,16 +94,15 @@ export default function LoginPage() {
             boxShadow: '0 24px 60px rgba(108,99,255,0.18), 0 4px 16px rgba(108,99,255,0.08)',
           }}
         >
-          {/* Logo */}
+          {/* PLN Logo */}
           <div className="flex items-center gap-4 mb-8">
             <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+              className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden bg-white/95 border border-white/80 p-1.5 shadow-md"
               style={{
-                background: 'linear-gradient(135deg, #6C63FF, #3B82F6)',
-                boxShadow: '0 0 28px rgba(108,99,255,0.5)',
+                boxShadow: '0 4px 20px rgba(247,232,46,0.3)',
               }}
             >
-              <Zap size={26} className="text-white" fill="white" />
+              <PlnIcon className="w-full h-full object-contain" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-indigo-900 leading-tight">GeoEV Insight</h1>

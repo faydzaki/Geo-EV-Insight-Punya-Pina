@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
-import { MapContainer, TileLayer, CircleMarker, Tooltip, Popup, Circle, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, CircleMarker, Tooltip, Popup, Circle, useMap, useMapEvents } from 'react-leaflet'
 import { COLORS, AREA_CENTERS } from '@/lib/constants'
 import { fmtNumber } from '@/lib/utils'
 import type { Spklu, HcsRecord } from '@/types'
@@ -9,7 +9,7 @@ import 'leaflet/dist/leaflet.css'
 // ─── Basemap configs (100% Free, No API Key Required) ───────────────────────
 const BASEMAPS = {
   osm: {
-    label: 'Jalan (OSM)',
+    label: 'Jalan',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     subdomains: 'abc',
@@ -60,10 +60,23 @@ function MapController({
   }, [flyToSite, map])
 
   useEffect(() => {
-    if (isFirstReset.current) { isFirstReset.current = false; return }
+    if (isFirstReset.current) {
+      isFirstReset.current = false
+      return
+    }
     map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, { duration: 1.2 })
   }, [resetKey, map])
 
+  return null
+}
+
+// ─── Map Canvas Click Listener (Deselects on empty canvas click) ────────────
+function MapEvents({ onMapClick }: { onMapClick?: () => void }) {
+  useMapEvents({
+    click: () => {
+      onMapClick?.()
+    },
+  })
   return null
 }
 
@@ -96,7 +109,7 @@ function SpkluPopup({ site }: { site: Spklu }) {
         {site.alamat || 'Alamat belum tersedia'}
       </p>
       <div style={{ fontSize: 13, fontWeight: 700, color: '#1E1B4B', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="#6C63FF" stroke="#6C63FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#3B82F6" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
         </svg>
         <span>{fmtNumber(site.daya, 1)} kW &middot; {site.unit} unit &middot; {site.connector} konektor</span>
@@ -104,9 +117,9 @@ function SpkluPopup({ site }: { site: Spklu }) {
       {site.rincian?.length > 0 && (
         <table style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse', marginBottom: 10 }}>
           <thead>
-            <tr style={{ background: '#F5F0FF' }}>
+            <tr style={{ background: '#F0F9FF' }}>
               {['Daya', 'Unit', 'Konektor'].map((h) => (
-                <th key={h} style={{ textAlign: 'left', padding: '4px 8px', border: '1px solid #E9D5FF', fontWeight: 600, color: '#5b21b6' }}>{h}</th>
+                <th key={h} style={{ textAlign: 'left', padding: '4px 8px', border: '1px solid #BAE6FD', fontWeight: 600, color: '#0369A1' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -135,12 +148,12 @@ function SpkluPopup({ site }: { site: Spklu }) {
           width: '100%',
           padding: '7px 12px',
           borderRadius: 10,
-          background: 'linear-gradient(135deg, #6C63FF 0%, #3B82F6 100%)',
+          background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
           color: '#fff',
           fontWeight: 700,
           fontSize: 12,
           textDecoration: 'none',
-          boxShadow: '0 2px 10px rgba(108,99,255,0.35)',
+          boxShadow: '0 2px 10px rgba(37,99,235,0.3)',
           marginBottom: 6,
           boxSizing: 'border-box',
         }}
@@ -179,18 +192,26 @@ interface SpkluMapProps {
   sites: Spklu[]
   hcsData: HcsRecord[]
   layer: 'spklu' | 'hcs' | 'both'
-  onSelectSite?: (id: number) => void
+  onSelectSite?: (id: number | null) => void
   selectedId?: number | null
   showCoverage?: boolean
   flyToArea?: string
+  resetKey?: number
 }
 
 export default function SpkluMap({
-  sites, hcsData, layer, onSelectSite, selectedId, showCoverage = false, flyToArea,
+  sites,
+  hcsData,
+  layer,
+  onSelectSite,
+  selectedId,
+  showCoverage = false,
+  flyToArea,
+  resetKey: externalResetKey = 0,
 }: SpkluMapProps) {
   const [mounted, setMounted] = useState(false)
   const [basemap, setBasemap] = useState<BasemapKey>('osm')
-  const [resetKey, setResetKey] = useState(0)
+  const justClickedMarkerRef = useRef(false)
 
   useEffect(() => setMounted(true), [])
 
@@ -200,11 +221,11 @@ export default function SpkluMap({
   if (!mounted) {
     return (
       <div
-        className="h-[600px] rounded-xl flex items-center justify-center text-slate-400 text-sm"
+        className="w-full h-full min-h-[380px] rounded-2xl flex items-center justify-center text-slate-400 text-sm"
         style={{ background: 'linear-gradient(135deg, #F0EFFE, #EEF2FF)' }}
       >
         <div className="flex flex-col items-center gap-2">
-          <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
           <span>Memuat peta...</span>
         </div>
       </div>
@@ -226,20 +247,20 @@ export default function SpkluMap({
   const floatingPanel: React.CSSProperties = {
     position: 'absolute',
     zIndex: 1000,
-    background: 'rgba(255,255,255,0.94)',
-    backdropFilter: 'blur(12px)',
-    WebkitBackdropFilter: 'blur(12px)',
-    border: '1px solid rgba(108,99,255,0.12)',
-    borderRadius: 14,
-    boxShadow: '0 4px 20px rgba(108,99,255,0.14)',
+    background: 'rgba(255,255,255,0.92)',
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255,255,255,0.9)',
+    borderRadius: 12,
+    boxShadow: '0 2px 10px rgba(15,23,42,0.08)',
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <MapContainer
         center={DEFAULT_CENTER}
         zoom={DEFAULT_ZOOM}
-        style={{ height: 600, width: '100%', borderRadius: '0.75rem' }}
+        style={{ height: '100%', minHeight: 380, width: '100%', borderRadius: '1rem' }}
         scrollWheelZoom={true}
       >
         <TileLayer
@@ -250,7 +271,15 @@ export default function SpkluMap({
           maxZoom={bm.maxZoom}
         />
 
-        <MapController flyToArea={flyToArea} flyToSite={flyToSite} resetKey={resetKey} />
+        <MapController flyToArea={flyToArea} flyToSite={flyToSite} resetKey={externalResetKey} />
+
+        {/* Deselect on empty canvas click */}
+        <MapEvents
+          onMapClick={() => {
+            if (justClickedMarkerRef.current) return
+            onSelectSite?.(null)
+          }}
+        />
 
         {/* Coverage circles */}
         {showCoverage && (layer === 'spklu' || layer === 'both') && sites.map((site) => (
@@ -258,7 +287,7 @@ export default function SpkluMap({
             key={`cov-${site.id}`}
             center={[site.lat, site.lon]}
             radius={5000}
-            pathOptions={{ color: '#6C63FF', weight: 1, fillColor: '#6C63FF', fillOpacity: 0.07, dashArray: '5,4' }}
+            pathOptions={{ color: '#3B82F6', weight: 1, fillColor: '#3B82F6', fillOpacity: 0.08, dashArray: '5,4' }}
           />
         ))}
 
@@ -270,12 +299,12 @@ export default function SpkluMap({
               {isSelected && (
                 <CircleMarker
                   center={[site.lat, site.lon]}
-                  radius={15}
+                  radius={16}
                   pathOptions={{
-                    color: '#6C63FF',
+                    color: '#2563EB',
                     weight: 2.5,
-                    fillColor: '#6C63FF',
-                    fillOpacity: 0.22,
+                    fillColor: '#3B82F6',
+                    fillOpacity: 0.25,
                     dashArray: '3,3',
                   }}
                 />
@@ -284,12 +313,23 @@ export default function SpkluMap({
                 center={[site.lat, site.lon]}
                 radius={isSelected ? 9 : 7}
                 pathOptions={{
-                  color: isSelected ? '#312E81' : '#ffffff',
+                  color: isSelected ? '#1E3A8A' : '#ffffff',
                   weight: isSelected ? 3 : 2,
                   fillColor: COLORS[site.pengelola] ?? COLORS['Tidak diketahui'],
                   fillOpacity: 0.95,
                 }}
-                eventHandlers={{ click: () => onSelectSite?.(site.id) }}
+                eventHandlers={{
+                  click: (e) => {
+                    justClickedMarkerRef.current = true
+                    if (e.originalEvent) {
+                      e.originalEvent.stopPropagation?.()
+                    }
+                    onSelectSite?.(site.id)
+                    setTimeout(() => {
+                      justClickedMarkerRef.current = false
+                    }, 200)
+                  },
+                }}
               >
                 <Tooltip>{site.nama}</Tooltip>
                 <Popup maxWidth={380}><SpkluPopup site={site} /></Popup>
@@ -310,6 +350,17 @@ export default function SpkluMap({
               center={center}
               radius={radius}
               pathOptions={{ color: '#ffffff', weight: 3, fillColor: COLORS.HCS, fillOpacity: 0.85 }}
+              eventHandlers={{
+                click: (e) => {
+                  justClickedMarkerRef.current = true
+                  if (e.originalEvent) {
+                    e.originalEvent.stopPropagation?.()
+                  }
+                  setTimeout(() => {
+                    justClickedMarkerRef.current = false
+                  }, 200)
+                },
+              }}
             >
               <Tooltip>{area}: {fmtNumber(info.total)} catatan HCS</Tooltip>
               <Popup maxWidth={300}><HcsPopup area={area} total={info.total} brands={sortedBrands} /></Popup>
@@ -318,21 +369,21 @@ export default function SpkluMap({
         })}
       </MapContainer>
 
-      {/* Basemap switcher - bottom left */}
-      <div style={{ ...floatingPanel, bottom: 16, left: 16, display: 'flex', gap: 3, padding: 4 }}>
+      {/* Basemap switcher - top right of map */}
+      <div style={{ ...floatingPanel, top: 12, right: 12, display: 'flex', gap: 3, padding: 3, zIndex: 1000 }}>
         {(Object.keys(BASEMAPS) as BasemapKey[]).map((k) => (
           <button
             key={k}
             onClick={() => setBasemap(k)}
             style={{
-              padding: '5px 11px',
-              borderRadius: 10,
+              padding: '4px 10px',
+              borderRadius: 8,
               fontSize: 11,
               fontWeight: 600,
               cursor: 'pointer',
               border: 'none',
               transition: 'all 0.15s',
-              background: basemap === k ? 'linear-gradient(135deg, #6C63FF, #3B82F6)' : 'transparent',
+              background: basemap === k ? 'linear-gradient(135deg, #3B82F6, #2563EB)' : 'transparent',
               color: basemap === k ? '#fff' : '#64748b',
             }}
           >
@@ -340,31 +391,6 @@ export default function SpkluMap({
           </button>
         ))}
       </div>
-
-      {/* Reset center - bottom right */}
-      <button
-        onClick={() => setResetKey((k) => k + 1)}
-        style={{
-          ...floatingPanel,
-          bottom: 16,
-          right: 16,
-          padding: '6px 12px',
-          fontSize: 11,
-          fontWeight: 600,
-          color: '#6C63FF',
-          cursor: 'pointer',
-          border: '1px solid rgba(108,99,255,0.18)',
-          background: 'rgba(255,255,255,0.94)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-        }}
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-        </svg>
-        Pusatkan Peta
-      </button>
     </div>
   )
 }
