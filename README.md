@@ -73,8 +73,8 @@ Melalui integrasi geospasial dan perhitungan rasio komparatif, platform ini memb
 ### 5. 🛠️ Manajemen Data (`/admin`) — *Admin & Super Admin*
 * **Input SPKLU**: Formulir penambahan titik SPKLU baru dengan konfigurasi kelompok charger dinamis.
 * **Edit SPKLU**: Modifikasi data teknis dan toggle status operasional (Aktif / Nonaktif) dengan alasan perubahan.
-* **Input HCS**: Tambah catatan unit HCS baru per wilayah dan merek beserta titik koordinat wilayah (Latitude & Longitude) yang otomatis terisi.
-* **Edit & Koreksi HCS**: Tabel pencarian interaktif untuk mengoreksi atau mengubah total unit HCS tersimpan beserta pratinjau koordinat wilayah.
+* **Input HCS**: Tambah catatan unit HCS baru per wilayah dan merek dengan tombol cepat merek populer.
+* **Edit & Koreksi HCS**: Tabel pencarian interaktif untuk mengoreksi atau mengubah total unit HCS tersimpan.
 * **Upload Excel**: Unggah berkas `.xlsx` SPKLU dan HCS (mendukung mode *Replace* dan *Append* berpelindung *SHA-256*).
 * **Riwayat Perubahan (Audit Trail)**: Merekam 100 log transaksi terakhir (waktu, username, aksi, target, alasan).
 
@@ -263,4 +263,3 @@ geoev_insight/
 ## 📄 Lisensi & Hak Cipta
 
 Dikembangkan untuk kebutuhan internal operasional dan perencanaan strategis infrastruktur pengisian kendaraan listrik **PLN Energi Primer Indonesia (PLN ES)** di wilayah Jawa Timur dan Bali.
-
