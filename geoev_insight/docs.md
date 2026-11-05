@@ -263,8 +263,9 @@ Tersedia 6 tab kerja:
    * **Toggle Status Aktif/Nonaktif**: Jika ada SPKLU yang sedang rusak atau dalam pemeliharaan berkala, admin dapat menonaktifkannya sementara dengan menyertakan alasan. SPKLU yang nonaktif tidak akan muncul di peta publik, namun datanya tidak hilang.
 3. **Input HCS (`hcs-add`)**:
    * Menambah unit catatan Home Charging baru tanpa perlu mengunggah file Excel penuh.
-   * Pilih kabupaten/kota dan ketik merek kendaraan (tersedia tombol cepat merek populer: *HYUNDAI, WULING, BYD, CHERY, MG, BMW, TESLA, TOYOTA, KIA*).
-   * Masukkan jumlah unit tambahan dan alasan pembaruan.
+   * Pilih kabupaten/kota dan periksa/sesuaikan titik koordinat wilayah (Latitude & Longitude) yang otomatis terisi posisi pusat wilayah (disertai tombol reset default).
+   * Ketik atau pilih merek kendaraan (tersedia tombol cepat merek populer: *HYUNDAI, WULING, BYD, CHERY, MG, BMW, TESLA, TOYOTA, KIA*).
+   * Masukkan jumlah unit tambahan dan alasan pembaruan untuk catatan audit.
 4. **Edit & Koreksi HCS (`hcs-edit`)**:
    * Mengoreksi atau memperbarui angka total catatan HCS yang sudah tersimpan.
    * Dilengkapi tabel pencarian interaktif untuk menemukan baris wilayah dan merek yang ingin diperbaiki.

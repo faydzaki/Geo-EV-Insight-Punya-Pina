@@ -15,7 +15,9 @@ import DataTable from '@/components/ui/DataTable'
 import {
   Upload, Plus, Trash2, History, FileSpreadsheet,
   PenSquare, Edit2, Download, PlusCircle, SlidersHorizontal,
+  MapPin, RotateCcw,
 } from 'lucide-react'
+import { AREA_CENTERS } from '@/lib/constants'
 
 type Tab = 'spklu-add' | 'spklu-edit' | 'hcs-add' | 'hcs-edit' | 'upload' | 'history'
 
@@ -74,7 +76,11 @@ function UploadSpkluPanel() {
 
 function HcsAddPanel({ areas }: { areas: string[] }) {
   const qc = useQueryClient()
-  const [area, setArea] = useState(areas[0] || 'Kota Surabaya')
+  const initialArea = areas[0] || 'Kota Surabaya'
+  const [area, setArea] = useState(initialArea)
+  const defaultCoords = AREA_CENTERS[initialArea] ?? [-7.26, 112.75]
+  const [lat, setLat] = useState(String(defaultCoords[0]))
+  const [lon, setLon] = useState(String(defaultCoords[1]))
   const [brand, setBrand] = useState('')
   const [amount, setAmount] = useState('1')
   const [reason, setReason] = useState('')
@@ -83,6 +89,15 @@ function HcsAddPanel({ areas }: { areas: string[] }) {
 
   const { data: hcsRes } = useQuery({ queryKey: ['hcs'], queryFn: fetchHcs })
   const allHcs = hcsRes?.data ?? []
+
+  function handleAreaChange(newArea: string) {
+    setArea(newArea)
+    const coords = AREA_CENTERS[newArea]
+    if (coords) {
+      setLat(String(coords[0]))
+      setLon(String(coords[1]))
+    }
+  }
 
   // Check if current area & brand already exists
   const existingRecord = allHcs.find(
@@ -103,6 +118,12 @@ function HcsAddPanel({ areas }: { areas: string[] }) {
       setStatus({ ok: false, msg: 'Jumlah unit harus berupa angka positif (minimal 1).' })
       return
     }
+    const parsedLat = parseFloat(lat)
+    const parsedLon = parseFloat(lon)
+    if (isNaN(parsedLat) || isNaN(parsedLon)) {
+      setStatus({ ok: false, msg: 'Koordinat Latitude dan Longitude harus berupa angka yang valid.' })
+      return
+    }
     if (!reason.trim()) {
       setStatus({ ok: false, msg: 'Alasan penambahan wajib diisi untuk catatan audit.' })
       return
@@ -111,18 +132,19 @@ function HcsAddPanel({ areas }: { areas: string[] }) {
     setLoading(true)
     setStatus(null)
     try {
+      const auditReason = `${reason.trim()} (Koordinat: ${parsedLat.toFixed(5)}, ${parsedLon.toFixed(5)})`
       const res = await adjustHcs({
         area,
         brand: b,
         amount: amt,
         mode: 'add',
         expected_count: existingRecord?.jumlah ?? 0,
-        reason: reason.trim(),
+        reason: auditReason,
         request_id: crypto.randomUUID(),
       })
       setStatus({
         ok: true,
-        msg: `Berhasil menambahkan ${amt} unit untuk ${b} di ${area}. Total sekarang: ${fmtNumber(res.new_total ?? res.total)} unit.`,
+        msg: `Berhasil menambahkan ${amt} unit untuk ${b} di ${area} [Koordinat: ${parsedLat.toFixed(5)}, ${parsedLon.toFixed(5)}]. Total sekarang: ${fmtNumber(res.new_total ?? res.total)} unit.`,
       })
       setBrand('')
       setAmount('1')
@@ -143,18 +165,72 @@ function HcsAddPanel({ areas }: { areas: string[] }) {
       <div>
         <h3 className="font-semibold text-gray-800 text-lg">Input Catatan Home Charging Services (HCS)</h3>
         <p className="text-xs text-gray-500 mt-1">
-          Tambahkan unit pemasangan Home Charging Services baru ke kabupaten/kota dan merek kendaraan di Jawa Timur.
+          Tambahkan unit pemasangan Home Charging Services baru ke kabupaten/kota dan merek kendaraan di Jawa Timur beserta titik koordinat wilayah.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className={labelCls}>Kabupaten / Kota</label>
-          <select className={inputCls} value={area} onChange={(e) => setArea(e.target.value)}>
+          <select className={inputCls} value={area} onChange={(e) => handleAreaChange(e.target.value)}>
             {areas.map((a) => (
               <option key={a} value={a}>{a}</option>
             ))}
           </select>
+        </div>
+
+        {/* Titik Koordinat (Latitude & Longitude) */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className={labelCls}>Titik Koordinat Wilayah HCS *</label>
+            <button
+              type="button"
+              onClick={() => {
+                const c = AREA_CENTERS[area]
+                if (c) {
+                  setLat(String(c[0]))
+                  setLon(String(c[1]))
+                }
+              }}
+              className="text-[11px] text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 transition-colors"
+              title="Kembalikan ke koordinat resmi pusat wilayah"
+            >
+              <RotateCcw size={11} />
+              <span>Reset Default Wilayah</span>
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <span className="text-[10px] text-slate-400 block mb-0.5">Latitude (Lintang) *</span>
+              <input
+                type="number"
+                step="any"
+                placeholder="-7.25"
+                className={inputCls}
+                value={lat}
+                onChange={(e) => setLat(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-400 block mb-0.5">Longitude (Bujur) *</span>
+              <input
+                type="number"
+                step="any"
+                placeholder="112.75"
+                className={inputCls}
+                value={lon}
+                onChange={(e) => setLon(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1.5 bg-blue-50/60 p-2 rounded-lg border border-blue-100">
+            <MapPin size={13} className="text-blue-600 shrink-0" />
+            <span>
+              Titik koordinat otomatis terisi posisi pusat <strong>{area}</strong> dan digunakan untuk penandaan marker serta navigasi Google Maps di peta.
+            </span>
+          </p>
         </div>
 
         <div>
@@ -330,6 +406,17 @@ function HcsEditPanel({ areas }: { areas: string[] }) {
                   <span className="text-[10px] text-slate-400 block">Jumlah Saat Ini</span>
                   <span className="text-lg font-bold text-slate-800">{fmtNumber(selectedRecord.jumlah)}</span>
                 </div>
+              </div>
+
+              {/* Info Titik Koordinat Wilayah */}
+              <div className="p-2.5 rounded-xl bg-white/80 border border-blue-100/80 text-[11px] flex items-center justify-between">
+                <span className="text-slate-500 flex items-center gap-1.5 font-medium">
+                  <MapPin size={12} className="text-blue-600" />
+                  Titik Koordinat:
+                </span>
+                <span className="font-semibold text-slate-700">
+                  {AREA_CENTERS[selectedRecord.wilayah]?.[0] ?? '-'}, {AREA_CENTERS[selectedRecord.wilayah]?.[1] ?? '-'}
+                </span>
               </div>
 
               <div>
