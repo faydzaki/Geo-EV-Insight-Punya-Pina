@@ -39,7 +39,8 @@ export interface UserRecord {
   username: string
   role: 'super_admin' | 'admin' | 'viewer'
   display_name: string | null
-  active: 0 | 1
+  is_active?: 0 | 1
+  active?: 0 | 1
   created_at: string
 }
 
@@ -60,7 +61,7 @@ export async function createUser(payload: {
 
 export async function updateUser(
   id: number,
-  payload: { role?: string; display_name?: string; active?: 0 | 1; password?: string }
+  payload: { role?: string; display_name?: string; is_active?: 0 | 1; active?: 0 | 1; password?: string }
 ): Promise<void> {
   await axios.put(`${BASE}/users/${id}`, payload, { headers: headers() })
 }

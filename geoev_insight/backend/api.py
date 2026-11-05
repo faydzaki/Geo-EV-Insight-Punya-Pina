@@ -759,8 +759,9 @@ def list_users():
         all_users = database.get_all_users()
         # Jangan kirim password_hash
         safe = [{k: v for k, v in u.items() if k != "password_hash"} for u in all_users]
-        # Format datetime
+        # Format datetime and normalize active flag
         for u in safe:
+            u["active"] = u.get("is_active", 1)
             for dt_key in ("created_at", "last_login"):
                 if u.get(dt_key) and hasattr(u[dt_key], "strftime"):
                     u[dt_key] = u[dt_key].strftime("%d/%m/%Y %H:%M")

@@ -223,7 +223,7 @@ export default function UsersPage() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => updateMut.mutate({ id: editUser.id, payload: { role: editRole, display_name: editDisplayName, active: editActive } })}
+              onClick={() => updateMut.mutate({ id: editUser.id, payload: { role: editRole, display_name: editDisplayName, is_active: editActive, active: editActive } })}
               disabled={updateMut.isPending}
               className="bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
             >
@@ -298,8 +298,8 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${u.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {u.active ? 'Aktif' : 'Nonaktif'}
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${(u.is_active ?? u.active) === 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {(u.is_active ?? u.active) === 1 ? 'Aktif' : 'Nonaktif'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-gray-500 text-xs">
@@ -312,7 +312,7 @@ export default function UsersPage() {
                             setEditUser(u)
                             setEditRole(u.role)
                             setEditDisplayName(u.display_name ?? '')
-                            setEditActive(u.active)
+                            setEditActive((u.is_active ?? u.active ?? 1) === 1 ? 1 : 0)
                             setMsg(null)
                           }}
                           className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
@@ -359,14 +359,14 @@ export default function UsersPage() {
       {/* Custom Delete Confirmation Modal */}
       <ConfirmModal
         open={deleteTarget !== null}
-        title="Konfirmasi Hapus Pengguna"
+        title="Apakah Anda Yakin?"
         message={
           <div>
             <p className="text-sm font-semibold text-slate-800">
               Hapus user &ldquo;{deleteTarget?.username}&rdquo;?
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              Tindakan ini tidak dapat dibatalkan. Akun ini tidak akan dapat login lagi ke sistem.
+              Tindakan ini tidak dapat dibatalkan. Pengguna ini tidak akan bisa login ke GeoEV Insight lagi.
             </p>
           </div>
         }

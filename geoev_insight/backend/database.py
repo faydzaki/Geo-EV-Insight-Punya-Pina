@@ -264,6 +264,8 @@ def create_user(username: str, password: str, role: str, display_name: str = "")
 
 def update_user(user_id: int, data: dict):
     """Update user. Allowed fields: display_name, role, is_active, password."""
+    if "active" in data and "is_active" not in data:
+        data = {**data, "is_active": data["active"]}
     allowed = {"display_name", "role", "is_active", "password"}
     values = {}
     for key, val in data.items():

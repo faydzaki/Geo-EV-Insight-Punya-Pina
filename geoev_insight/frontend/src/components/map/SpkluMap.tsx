@@ -168,21 +168,104 @@ function SpkluPopup({ site }: { site: Spklu }) {
   )
 }
 
-function HcsPopup({ area, total, brands }: { area: string; total: number; brands: [string, number][] }) {
+function HcsPopup({
+  area,
+  total,
+  brands,
+  center,
+}: {
+  area: string
+  total: number
+  brands: [string, number][]
+  center: [number, number]
+}) {
+  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${center[0]},${center[1]}&travelmode=driving`
+  const topBrands = brands.slice(0, 5)
+
   return (
-    <div style={{ fontFamily: "'Inter','Segoe UI',Arial,sans-serif", maxWidth: 280 }}>
-      <div style={{ fontWeight: 700, color: '#1E1B4B', marginBottom: 4, lineHeight: 1.3 }}>{area}</div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#8B5CF6', marginBottom: 8 }}>{fmtNumber(total)} catatan HCS</div>
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#4B5563', marginBottom: 4 }}>Kategori kendaraan:</div>
-      <ul style={{ fontSize: 11, color: '#4B5563', margin: 0, padding: 0, listStyle: 'none' }}>
-        {brands.slice(0, 5).map(([brand, cnt]) => (
-          <li key={brand} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-            <span>{brand}</span>
-            <span style={{ fontWeight: 600, color: '#4C1D95' }}>{fmtNumber(cnt)}</span>
-          </li>
-        ))}
-      </ul>
-      <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 8 }}>Titik menunjukkan kabupaten/kota, bukan alamat pelanggan.</p>
+    <div style={{ fontFamily: "'Inter','Segoe UI',Arial,sans-serif", maxWidth: 310 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
+        <div style={{ fontWeight: 700, color: '#1E1B4B', flex: 1, lineHeight: 1.3, fontSize: 13 }}>
+          {area}
+        </div>
+        <span style={{
+          fontSize: 10, padding: '2px 8px', borderRadius: 99, fontWeight: 600,
+          background: '#ede9fe', color: '#5b21b6', whiteSpace: 'nowrap',
+        }}>
+          Home Charging
+        </span>
+      </div>
+
+      {/* Alamat & Titik Koordinat */}
+      <p style={{ fontSize: 11, color: '#4B5563', marginBottom: 2 }}>
+        📍 Pusat Wilayah {area}, Jawa Timur
+      </p>
+      <p style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 6 }}>
+        Koordinat: {center[0].toFixed(5)}, {center[1].toFixed(5)}
+      </p>
+
+      {/* Total Catatan HCS */}
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#7C3AED', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <span>⚡ {fmtNumber(total)} unit catatan HCS</span>
+      </div>
+
+      {/* Informasi Mobil Listrik Table */}
+      {topBrands.length > 0 && (
+        <table style={{ fontSize: 11, width: '100%', borderCollapse: 'collapse', marginBottom: 8 }}>
+          <thead>
+            <tr style={{ background: '#F5F3FF' }}>
+              <th style={{ textAlign: 'left', padding: '3px 6px', border: '1px solid #DDD6FE', fontWeight: 600, color: '#5B21B6' }}>Mobil Listrik</th>
+              <th style={{ textAlign: 'center', padding: '3px 6px', border: '1px solid #DDD6FE', fontWeight: 600, color: '#5B21B6' }}>Unit</th>
+              <th style={{ textAlign: 'center', padding: '3px 6px', border: '1px solid #DDD6FE', fontWeight: 600, color: '#5B21B6' }}>Porsi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {topBrands.map(([brand, cnt], i) => (
+              <tr key={brand} style={{ background: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
+                <td style={{ padding: '3px 6px', border: '1px solid #F3F4F6', fontWeight: 500 }}>{brand}</td>
+                <td style={{ padding: '3px 6px', border: '1px solid #F3F4F6', textAlign: 'center', fontWeight: 600, color: '#4C1D95' }}>{fmtNumber(cnt)}</td>
+                <td style={{ padding: '3px 6px', border: '1px solid #F3F4F6', textAlign: 'center', color: '#6B7280' }}>
+                  {total > 0 ? `${Math.round((cnt / total) * 100)}%` : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {/* Google Maps Navigation Button */}
+      <a
+        href={mapsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          width: '100%',
+          padding: '7px 12px',
+          borderRadius: 10,
+          background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+          color: '#fff',
+          fontWeight: 700,
+          fontSize: 12,
+          textDecoration: 'none',
+          boxShadow: '0 2px 10px rgba(124,58,237,0.3)',
+          marginBottom: 4,
+          boxSizing: 'border-box',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+        </svg>
+        Petunjuk Arah (Google Maps)
+      </a>
+
+      <p style={{ fontSize: 10, color: '#9CA3AF', margin: '4px 0 0 0', textAlign: 'center' }}>
+        Titik koordinat representatif kabupaten/kota
+      </p>
     </div>
   )
 }
@@ -194,6 +277,8 @@ interface SpkluMapProps {
   layer: 'spklu' | 'hcs' | 'both'
   onSelectSite?: (id: number | null) => void
   selectedId?: number | null
+  onSelectHcs?: (area: string | null) => void
+  selectedHcsArea?: string | null
   showCoverage?: boolean
   flyToArea?: string
   resetKey?: number
@@ -205,6 +290,8 @@ export default function SpkluMap({
   layer,
   onSelectSite,
   selectedId,
+  onSelectHcs,
+  selectedHcsArea,
   showCoverage = false,
   flyToArea,
   resetKey: externalResetKey = 0,
@@ -216,7 +303,12 @@ export default function SpkluMap({
   useEffect(() => setMounted(true), [])
 
   const selectedSite = selectedId ? sites.find((s) => s.id === selectedId) : null
-  const flyToSite: [number, number] | null = selectedSite ? [selectedSite.lat, selectedSite.lon] : null
+  const selectedHcsCenter = selectedHcsArea ? AREA_CENTERS[selectedHcsArea] : null
+  const flyToSite: [number, number] | null = selectedSite
+    ? [selectedSite.lat, selectedSite.lon]
+    : selectedHcsCenter
+    ? selectedHcsCenter
+    : null
 
   if (!mounted) {
     return (
@@ -278,6 +370,7 @@ export default function SpkluMap({
           onMapClick={() => {
             if (justClickedMarkerRef.current) return
             onSelectSite?.(null)
+            onSelectHcs?.(null)
           }}
         />
 
@@ -324,6 +417,7 @@ export default function SpkluMap({
                     if (e.originalEvent) {
                       e.originalEvent.stopPropagation?.()
                     }
+                    onSelectHcs?.(null)
                     onSelectSite?.(site.id)
                     setTimeout(() => {
                       justClickedMarkerRef.current = false
@@ -342,29 +436,53 @@ export default function SpkluMap({
         {(layer === 'hcs' || layer === 'both') && Object.entries(hcsByArea).map(([area, info]) => {
           const center = AREA_CENTERS[area]
           if (!center) return null
+          const isSelected = selectedHcsArea === area
           const radius = Math.min(30, 7 + Math.sqrt(info.total) * 0.45)
           const sortedBrands = [...info.brands].sort((a, b) => b[1] - a[1])
           return (
-            <CircleMarker
-              key={`hcs-${area}`}
-              center={center}
-              radius={radius}
-              pathOptions={{ color: '#ffffff', weight: 3, fillColor: COLORS.HCS, fillOpacity: 0.85 }}
-              eventHandlers={{
-                click: (e) => {
-                  justClickedMarkerRef.current = true
-                  if (e.originalEvent) {
-                    e.originalEvent.stopPropagation?.()
-                  }
-                  setTimeout(() => {
-                    justClickedMarkerRef.current = false
-                  }, 200)
-                },
-              }}
-            >
-              <Tooltip>{area}: {fmtNumber(info.total)} catatan HCS</Tooltip>
-              <Popup maxWidth={300}><HcsPopup area={area} total={info.total} brands={sortedBrands} /></Popup>
-            </CircleMarker>
+            <React.Fragment key={`hcs-${area}`}>
+              {isSelected && (
+                <CircleMarker
+                  center={center}
+                  radius={radius + 8}
+                  pathOptions={{
+                    color: '#6D28D9',
+                    weight: 2.5,
+                    fillColor: '#8B5CF6',
+                    fillOpacity: 0.25,
+                    dashArray: '3,3',
+                  }}
+                />
+              )}
+              <CircleMarker
+                center={center}
+                radius={isSelected ? radius + 2 : radius}
+                pathOptions={{
+                  color: isSelected ? '#4C1D95' : '#ffffff',
+                  weight: isSelected ? 3.5 : 2.5,
+                  fillColor: COLORS.HCS,
+                  fillOpacity: 0.88,
+                }}
+                eventHandlers={{
+                  click: (e) => {
+                    justClickedMarkerRef.current = true
+                    if (e.originalEvent) {
+                      e.originalEvent.stopPropagation?.()
+                    }
+                    onSelectSite?.(null)
+                    onSelectHcs?.(area)
+                    setTimeout(() => {
+                      justClickedMarkerRef.current = false
+                    }, 200)
+                  },
+                }}
+              >
+                <Tooltip>{area}: {fmtNumber(info.total)} catatan HCS</Tooltip>
+                <Popup maxWidth={330}>
+                  <HcsPopup area={area} total={info.total} brands={sortedBrands} center={center} />
+                </Popup>
+              </CircleMarker>
+            </React.Fragment>
           )
         })}
       </MapContainer>

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 import { fetchSpklu, fetchHcs, fetchAreas, downloadExport } from '@/lib/api'
@@ -9,9 +9,9 @@ import type { Spklu } from '@/types'
 import {
   MapPin, Zap, Plug, Gauge, Users, Building2,
   ChevronDown, RotateCcw, Navigation, Check, Copy,
-  Download,
+  Download, Car,
 } from 'lucide-react'
-import { OWNERS, POWER_OPTIONS } from '@/lib/constants'
+import { OWNERS, POWER_OPTIONS, AREA_CENTERS } from '@/lib/constants'
 
 const SpkluMap = dynamic(() => import('@/components/map/SpkluMap'), { ssr: false })
 
@@ -70,6 +70,7 @@ export default function PetaPage() {
   const [filters, setFilters] = useState({ prov: 'Semua', owner: 'Semua', area: 'Semua', power: 'all', search: '' })
   const [layer, setLayer] = useState<Layer>('spklu')
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [selectedHcsArea, setSelectedHcsArea] = useState<string | null>(null)
   const [resetMapKey, setResetMapKey] = useState(0)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [showCoverage, setShowCoverage] = useState(false)
@@ -88,10 +89,41 @@ export default function PetaPage() {
   const hcs    = hcsRes?.data   ?? []
   const areas  = areasRes?.data ?? []
 
+  // Group HCS by area
+  const hcsByArea = useMemo(() => {
+    const acc: Record<string, { total: number; brands: [string, number][] }> = {}
+    for (const r of hcs) {
+      if (!acc[r.wilayah]) acc[r.wilayah] = { total: 0, brands: [] }
+      acc[r.wilayah].total += r.jumlah
+      const existing = acc[r.wilayah].brands.find(([b]) => b === r.merk)
+      if (existing) existing[1] += r.jumlah
+      else acc[r.wilayah].brands.push([r.merk, r.jumlah])
+    }
+    return acc
+  }, [hcs])
+
   // Active site is empty until explicitly selected by clicking marker or search
   const activeSite: Spklu | null = selectedId
     ? (sites.find((s) => s.id === selectedId) ?? null)
     : null
+
+  // Active HCS area is empty until explicitly selected by clicking HCS marker or search
+  const activeHcs = useMemo(() => {
+    if (!selectedHcsArea || !hcsByArea[selectedHcsArea]) return null
+    const center = AREA_CENTERS[selectedHcsArea]
+    if (!center) return null
+    const info = hcsByArea[selectedHcsArea]
+    const sortedBrands = [...info.brands].sort((a, b) => b[1] - a[1])
+    return {
+      area: selectedHcsArea,
+      lat: center[0],
+      lon: center[1],
+      total: info.total,
+      brands: sortedBrands,
+      topBrand: sortedBrands[0]?.[0] ?? '—',
+      alamat: `Pusat Wilayah ${selectedHcsArea}, Jawa Timur`,
+    }
+  }, [selectedHcsArea, hcsByArea])
 
   const totalDaya      = sites.reduce((s, x) => s + x.daya, 0)
   const totalUnit      = sites.reduce((s, x) => s + x.unit, 0)
@@ -110,6 +142,7 @@ export default function PetaPage() {
   function handleReset() {
     setFilters({ prov: 'Semua', owner: 'Semua', area: 'Semua', power: 'all', search: '' })
     setSelectedId(null)
+    setSelectedHcsArea(null)
     setIsSearchOpen(false)
     setResetMapKey((k) => k + 1)
   }
@@ -126,6 +159,8 @@ export default function PetaPage() {
 
   const mapsUrl = activeSite
     ? `https://www.google.com/maps/dir/?api=1&destination=${activeSite.lat},${activeSite.lon}&travelmode=driving`
+    : activeHcs
+    ? `https://www.google.com/maps/dir/?api=1&destination=${activeHcs.lat},${activeHcs.lon}&travelmode=driving`
     : '#'
 
   return (
@@ -398,15 +433,17 @@ export default function PetaPage() {
                     boxShadow: '0 20px 35px -5px rgba(15, 23, 42, 0.25), 0 8px 16px -6px rgba(15, 23, 42, 0.15)',
                   }}
                 >
+                  {/* SPKLU Matches */}
                   {sites.filter((s) =>
                     s.nama.toLowerCase().includes(filters.search.toLowerCase()) ||
                     (s.alamat && s.alamat.toLowerCase().includes(filters.search.toLowerCase()))
-                  ).slice(0, 6).map((s) => (
+                  ).slice(0, 5).map((s) => (
                     <button
-                      key={s.id}
+                      key={`search-spklu-${s.id}`}
                       type="button"
                       onClick={() => {
                         setSelectedId(s.id)
+                        setSelectedHcsArea(null)
                         handleFilterChange('search', s.nama)
                         setIsSearchOpen(false)
                         const el = document.getElementById('section-map-details')
@@ -421,12 +458,44 @@ export default function PetaPage() {
                       </div>
                     </button>
                   ))}
+
+                  {/* HCS Area Matches */}
+                  {Object.keys(hcsByArea)
+                    .filter((area) => area.toLowerCase().includes(filters.search.toLowerCase()))
+                    .slice(0, 3)
+                    .map((area) => (
+                      <button
+                        key={`search-hcs-${area}`}
+                        type="button"
+                        onClick={() => {
+                          setSelectedHcsArea(area)
+                          setSelectedId(null)
+                          handleFilterChange('search', area)
+                          setIsSearchOpen(false)
+                          const el = document.getElementById('section-map-details')
+                          if (el) el.scrollIntoView({ behavior: 'smooth' })
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-purple-50/90 rounded-xl transition-colors flex items-start gap-2.5 text-xs group"
+                      >
+                        <Car size={14} className="text-purple-600 mt-0.5 shrink-0 group-hover:scale-110 transition-transform" />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-slate-800 truncate">{area}</div>
+                          <div className="text-[10px] text-purple-600 truncate">
+                            {fmtNumber(hcsByArea[area]?.total ?? 0)} unit catatan Home Charging
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+
                   {sites.filter((s) =>
                     s.nama.toLowerCase().includes(filters.search.toLowerCase()) ||
                     (s.alamat && s.alamat.toLowerCase().includes(filters.search.toLowerCase()))
+                  ).length === 0 &&
+                  Object.keys(hcsByArea).filter((area) =>
+                    area.toLowerCase().includes(filters.search.toLowerCase())
                   ).length === 0 && (
                     <div className="px-3 py-3 text-xs text-slate-400 text-center">
-                      Tidak ada SPKLU yang cocok dengan pencarian
+                      Tidak ada SPKLU atau wilayah HCS yang cocok
                     </div>
                   )}
                 </div>
@@ -606,8 +675,16 @@ export default function PetaPage() {
               sites={sites}
               hcsData={hcs}
               layer={layer}
-              onSelectSite={(id) => setSelectedId(id)}
+              onSelectSite={(id) => {
+                setSelectedId(id)
+                if (id !== null) setSelectedHcsArea(null)
+              }}
               selectedId={selectedId}
+              onSelectHcs={(area) => {
+                setSelectedHcsArea(area)
+                if (area !== null) setSelectedId(null)
+              }}
+              selectedHcsArea={selectedHcsArea}
               showCoverage={showCoverage}
               flyToArea={filters.area}
               resetKey={resetMapKey}
@@ -641,6 +718,7 @@ export default function PetaPage() {
               type="button"
               onClick={() => {
                 setSelectedId(null)
+                setSelectedHcsArea(null)
                 setResetMapKey((k) => k + 1)
               }}
               className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-md hover:bg-white px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-600 shadow-sm border border-white/80 transition-all flex items-center gap-1.5 active:scale-95"
@@ -657,15 +735,26 @@ export default function PetaPage() {
         <div className="bg-white/75 backdrop-blur-sm border border-white rounded-3xl p-5 shadow-xs flex flex-col justify-between relative overflow-hidden h-full min-h-[400px]">
           {/* Top Title */}
           <div className="relative z-10 flex items-center justify-between">
-            <h3 className="font-bold text-slate-800 text-sm">Detail Lokasi</h3>
-            {activeSite && (
+            <h3 className="font-bold text-slate-800 text-sm">
+              {activeHcs ? 'Detail Wilayah HCS' : 'Detail Lokasi'}
+            </h3>
+            {(activeSite || activeHcs) && (
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(`${activeSite.lat.toFixed(6)}, ${activeSite.lon.toFixed(6)}`)
+                  const coords = activeSite
+                    ? `${activeSite.lat.toFixed(6)}, ${activeSite.lon.toFixed(6)}`
+                    : activeHcs
+                    ? `${activeHcs.lat.toFixed(6)}, ${activeHcs.lon.toFixed(6)}`
+                    : ''
+                  navigator.clipboard.writeText(coords)
                   setCopied(true)
                   setTimeout(() => setCopied(false), 2000)
                 }}
-                className="text-[10px] text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-0.5 rounded-md flex items-center gap-1 font-medium transition-colors"
+                className={`text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 font-medium transition-colors ${
+                  activeHcs
+                    ? 'text-purple-700 hover:text-purple-900 bg-purple-50'
+                    : 'text-blue-600 hover:text-blue-800 bg-blue-50'
+                }`}
                 title="Salin koordinat GPS"
               >
                 {copied ? <Check size={10} className="text-emerald-600" /> : <Copy size={10} />}
@@ -674,12 +763,12 @@ export default function PetaPage() {
             )}
           </div>
 
-          {/* Center Site Card or Friendly Empty State */}
+          {/* Center Site Card or HCS Card or Friendly Empty State */}
           <div className="relative z-10 my-auto py-2">
             {activeSite ? (
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0 shadow-xs">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 shadow-xs">
                     <MapPin size={18} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -751,22 +840,100 @@ export default function PetaPage() {
                   </p>
                 )}
               </div>
+            ) : activeHcs ? (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0 shadow-xs">
+                    <Car size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-800 leading-tight mb-1 truncate">
+                      {activeHcs.area}
+                    </h4>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-700 text-[10px] font-semibold rounded-md border border-purple-100">
+                      <span className="text-[7px]">●</span> Terdata HCS ({fmtNumber(activeHcs.total)} unit)
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3 Stats Boxes for HCS */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-purple-50/50 border border-purple-100/70 rounded-xl p-2 flex flex-col items-center justify-center text-center">
+                    <span className="text-xs font-bold text-purple-900 leading-tight mb-0.5">
+                      ⚡ {fmtNumber(activeHcs.total)}
+                    </span>
+                    <span className="text-[10px] text-purple-600/80">Total HCS</span>
+                  </div>
+                  <div className="bg-purple-50/50 border border-purple-100/70 rounded-xl p-2 flex flex-col items-center justify-center text-center">
+                    <span className="text-xs font-bold text-purple-900 leading-tight mb-0.5 truncate max-w-[80px]">
+                      🚗 {activeHcs.topBrand}
+                    </span>
+                    <span className="text-[10px] text-purple-600/80">Merek Top</span>
+                  </div>
+                  <div className="bg-purple-50/50 border border-purple-100/70 rounded-xl p-2 flex flex-col items-center justify-center text-center">
+                    <span className="text-xs font-bold text-purple-900 leading-tight mb-0.5">
+                      🏷️ {activeHcs.brands.length}
+                    </span>
+                    <span className="text-[10px] text-purple-600/80">Model EV</span>
+                  </div>
+                </div>
+
+                {/* Rincian Mobil Listrik Table */}
+                {activeHcs.brands.length > 0 && (
+                  <div className="rounded-xl border border-purple-100/90 bg-white/90 overflow-hidden shadow-2xs max-h-[160px] overflow-y-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="sticky top-0 bg-[#F5F3FF] text-purple-800 border-b border-purple-100 text-[11px] z-10">
+                        <tr>
+                          <th className="py-1.5 px-3 font-semibold">Mobil Listrik</th>
+                          <th className="py-1.5 px-2 font-semibold text-center">Unit</th>
+                          <th className="py-1.5 px-3 font-semibold text-center">Porsi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700 text-xs font-normal">
+                        {activeHcs.brands.map(([brand, count], i) => (
+                          <tr key={i} className="hover:bg-purple-50/40 transition-colors">
+                            <td className="py-1.5 px-3 font-medium text-slate-800">
+                              {brand}
+                            </td>
+                            <td className="py-1.5 px-2 text-center text-slate-600">
+                              {fmtNumber(count)}
+                            </td>
+                            <td className="py-1.5 px-3 text-center text-purple-600 font-medium text-[11px]">
+                              {activeHcs.total > 0 ? ((count / activeHcs.total) * 100).toFixed(1) : 0}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Representative Address & Coordinates */}
+                <div className="bg-white/70 p-2.5 rounded-xl border border-purple-100/60 text-[11px] space-y-1">
+                  <div className="text-slate-700 font-medium truncate">
+                    📍 {activeHcs.alamat}
+                  </div>
+                  <div className="text-slate-400 text-[10px]">
+                    🌐 Koordinat: {activeHcs.lat.toFixed(5)}, {activeHcs.lon.toFixed(5)}
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-blue-50/90 text-blue-500 flex items-center justify-center mb-3 shadow-xs border border-blue-100/60">
                   <MapPin size={24} className="opacity-70 stroke-[1.75]" />
                 </div>
                 <h4 className="font-bold text-slate-700 text-sm mb-1">
-                  Pilih Lokasi SPKLU
+                  Pilih Titik SPKLU atau HCS
                 </h4>
                 <p className="text-xs text-slate-400 max-w-[210px] leading-relaxed">
-                  Klik titik pada peta atau cari SPKLU di atas untuk melihat informasi detail lokasi.
+                  Klik titik SPKLU atau lingkaran wilayah HCS pada peta untuk melihat detail, unit kendaraan, dan navigasi Maps.
                 </p>
               </div>
             )}
           </div>
 
-          {/* Action Button: Google Maps Navigation (only when site selected) */}
+          {/* Action Button: Google Maps Navigation */}
           {activeSite ? (
             <div className="relative z-10 pt-2">
               <a
@@ -777,6 +944,18 @@ export default function PetaPage() {
               >
                 <Navigation size={13} />
                 <span>Buka di Google Maps →</span>
+              </a>
+            </div>
+          ) : activeHcs ? (
+            <div className="relative z-10 pt-2">
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 px-4 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 border border-purple-200/80 shadow-xs"
+              >
+                <Navigation size={13} />
+                <span>Petunjuk Arah Google Maps (Wilayah {activeHcs.area}) →</span>
               </a>
             </div>
           ) : (
